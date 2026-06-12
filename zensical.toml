@@ -33,5 +33,13 @@ features = [
 [project.markdown_extensions.toc]
 permalink = true
 
+[project.markdown_extensions.pymdownx.superfences]
+
 [project.plugins.mkdocstrings.handlers.python]
 paths = ["src"]
+
+[project.plugins.mkdocstrings.handlers.python.options]
+members = true
+show_source = false
+imported_members = false
+show_bases = false

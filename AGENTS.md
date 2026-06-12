@@ -2,7 +2,7 @@
 
 ## What This Project Does
 
-This repository is a Python project generated from the `copier-pyproject` template. It uses an Astral-centered toolchain for packaging, linting, type checking, testing, and documentation. See `README.md` for user-facing setup and publishing details.
+smartscan is a CLI tool that runs `smartctl` on all disk devices, extracts key SMART health metrics (temperature, reallocated sectors, power-on hours, etc.), and stores historical results in SQLite for tracking changes over time. It supports both interactive table output and JSON lines for scripting.
 
 ## Environment & Tooling — CRITICAL
 
@@ -17,10 +17,29 @@ This repository is a Python project generated from the `copier-pyproject` templa
 ## Conventions
 
 - Application code lives under `src/smartscan`.
-- The CLI uses stdlib `argparse` with `argcomplete` for shell completion.
+- The CLI uses stdlib `argparse` with `argcomplete` for shell completion. Subcommands: `collect` and `query`.
+- Terminal output uses [Rich](https://rich.readthedocs.io/) for styled tables and formatting.
+- Configuration uses [Pydantic](https://docs.pydantic.dev/) `BaseModel` for validation.
+- SMART field structures use `TypedDict` (`SmartInfo`) for type safety.
+- Custom exceptions (`SmartScanError` hierarchy) separate error handling from business logic — only `cli.py` calls `sys.exit()`.
 - Tests live under `tests/` and should track public behavior, especially the CLI.
 - Documentation source lives under `docs/`, and docs configuration lives in `zensical.toml`.
 - Project metadata and dependency groups are defined in `pyproject.toml`; treat that file as the source of truth for tooling changes.
+
+## Module Layout
+
+| Module | Responsibility |
+|---|---|
+| `constants.py` | Default paths, DB schema, error messages |
+| `exceptions.py` | `SmartScanError` hierarchy |
+| `models.py` | `SmartScanConfig` (Pydantic), `SmartInfo` (TypedDict) |
+| `config.py` | `load_config()` — read TOML config into `SmartScanConfig` |
+| `logging.py` | `setup_logging()` |
+| `smartctl.py` | `find_disks()`, `run_smartctl()`, `extract_fields()`, helpers |
+| `output.py` | Rich-powered `print_table()`, `print_query_table()`, `print_json_output()` |
+| `database.py` | SQLite init, open, save, query |
+| `commands.py` | `do_collect()`, `do_query()` |
+| `cli.py` | `create_parser()`, `main()` |
 
 ## Testing Guidelines
 

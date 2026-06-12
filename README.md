@@ -10,13 +10,52 @@ A CLI tool that runs smartctl on all disks, extracts key SMART health metrics, a
 ## Installation
 
 ```bash
+# install from PyPI
+uv tool install smartscan
+
+# install from GitHub
+uv tool install git+https://github.com/ak1ra-lab/smartscan.git
+
+# development install
 uv sync --group dev
 ```
 
 ## Usage
 
+Collect SMART data from all disks:
+
 ```bash
-uv run smartscan info
+uv run smartscan collect
+```
+
+Query historical records:
+
+```bash
+uv run smartscan query --since 2024-01-01
+```
+
+JSON output:
+
+```bash
+uv run smartscan collect --json
+```
+
+Filter disks by name pattern:
+
+```bash
+uv run smartscan collect "WDC"
+```
+
+## Configuration
+
+Optionally create `~/.config/smartscan/smartscan.toml`:
+
+```toml
+format = "table"
+no_save = false
+no_log_file = false
+db_path = "~/.local/share/smartscan/smartscan.db"
+log_file = "~/.local/state/smartscan/smartscan.log"
 ```
 
 ## Development
