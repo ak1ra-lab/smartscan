@@ -4,7 +4,7 @@ A CLI tool that runs `smartctl` on all disks, extracts key SMART health metrics,
 
 ## Highlights
 
-- Collects SMART data via `smartctl --all --json` from `/dev/disk/by-id/ata-*`.
+- Collects SMART data via `smartctl --all --json` from `/dev/disk/by-id/ata-*` and `/dev/disk/by-id/nvme-*`.
 - Displays results as Rich-styled tables with warnings for critical values.
 - Stores historical data in SQLite for trend analysis (`query` subcommand).
 - Supports JSON lines output for scripting.

@@ -71,7 +71,13 @@ def check_smartctl_error(returncode: int | None) -> None:
 
 
 def find_disks(pattern: str) -> list[Path]:
-    """Discover ATA disk devices under ``/dev/disk/by-id/`` matching a regex pattern.
+    """Discover ATA and NVMe disk devices under ``/dev/disk/by-id/`` matching a regex pattern.
+
+    Multiple by-id entries may point to the same physical block device
+    (e.g. ``nvme-eui.*`` and ``nvme-Model_Serial`` both resolve to the same
+    ``nvme0n1``).  Vendor model names are preferred over EUI-based hex
+    identifiers, and names without a namespace suffix (``_1``) are preferred
+    over those with one.  Only one entry per physical disk is returned.
 
     Raises:
         DiskNotFoundError: If no matching disks are found or the by-id directory is missing.
@@ -86,18 +92,34 @@ def find_disks(pattern: str) -> list[Path]:
     except re.error as exc:
         raise DiskNotFoundError(f"Invalid regex pattern: {exc}") from exc
 
-    disks = []
+    disks: list[Path] = []
+    by_target: dict[Path, Path] = {}
+    _ns_re = re.compile(r"_\d+$")
     for entry in sorted(by_id.iterdir()):
         if not entry.is_symlink():
             continue
         name = entry.name
-        if not name.startswith("ata-"):
+        if not name.startswith(("ata-", "nvme-")):
             continue
         if re.search(r"-part\d+$", name):
             continue
         if not compiled.search(name):
             continue
-        disks.append(entry)
+        target = entry.resolve()
+        if target in by_target:
+            existing_name = by_target[target].name
+            old_is_eui = existing_name.startswith("nvme-eui.")
+            new_is_eui = name.startswith("nvme-eui.")
+            if old_is_eui and not new_is_eui:
+                by_target[target] = entry
+            elif not old_is_eui and not new_is_eui:
+                old_ns = bool(_ns_re.search(existing_name))
+                new_ns = bool(_ns_re.search(name))
+                if old_ns and not new_ns:
+                    by_target[target] = entry
+        else:
+            by_target[target] = entry
+    disks = sorted(by_target.values(), key=lambda p: p.name)
 
     if not disks:
         raise DiskNotFoundError(f"No disk devices found matching pattern: {pattern}")
