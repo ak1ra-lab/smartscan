@@ -5,15 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.1.0] - 2026-06-13
 
 ### Added
 
-- Initial release of the smartscan CLI tool.
-- `collect` subcommand to gather SMART data from disk devices via `smartctl`.
-- `query` subcommand to search historical SMART records in SQLite.
-- Rich-powered terminal output with styled tables and warnings.
-- JSON lines output mode for scripting.
-- Pydantic-based TOML configuration with validation.
-- Custom exception hierarchy (`SmartScanError`) for clean error handling.
-- `SmartInfo` TypedDict for type-safe SMART field access.
+- CLI tool with `collect` and `query` subcommands for SMART disk health monitoring
+- SMART data collection via `smartctl --all --json` from `/dev/disk/by-id/`
+- SQLite history database with WAL mode, auto-migration, and date-range query filters
+- Rich-powered table output with styled headers and colour-coded alert rows
+- JSON lines output mode for scripting (`--json`)
+- Pydantic-based TOML configuration for thresholds, LLM, and output preferences
+- Custom exception hierarchy (`SmartScanError`) separating error handling from `sys.exit()`
+- Shell tab completion via `argcomplete`
+- Configurable threshold-based SMART health alerts (temperature, reallocated sectors, pending sectors, UDMA CRC errors, load cycles, etc.)
+- Optional LLM-based health analysis with configurable endpoint, model, temperature, and system prompt
+- Force LLM analysis on all disks with `--force-llm`, bypassing both config and threshold checks
+- Self-test recency check in the default LLM system prompt
+- NVMe disk discovery with `/dev/disk/by-id/` deduplication (prefers vendor names over EUI identifiers, drops partition entries)
+- NVMe health metric extraction from `nvme_smart_health_information_log` (`media_errors`, `num_err_log_entries`, `power_on_hours`, `power_cycles`, etc.)
+- Verbose output mode (`-v`/`--verbose`) exposing extended fields (`raw_read_error_rate`, `spin_retry_count`, `load_cycle_count`, `helium_level`, etc.)
+
+### Changed
+
+- Removed `--no-log-file` option and default-subcommand fallback; logging now always writes to the configured log file
+- Refactored health field extraction into separate `_extract_nvme_health()` and `_extract_ata_health()` functions
+
+### Fixed
+
+- Threshold checks now also run in `query` mode for historical alert display
+- Database migration errors are now logged with a warning instead of being silently swallowed, except for expected "duplicate column" cases
+- Docker image now installs `smartmontools` so the `smartctl` binary is available at run time
+
+[0.1.0]: https://github.com/ak1ra-lab/smartscan/tag/?h=v0.1.0
