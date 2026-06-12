@@ -10,8 +10,16 @@ from argparse import Namespace
 
 from .database import init_db, open_db, query_smart_info, save_to_db
 from .exceptions import DiskNotFoundError
-from .output import print_json_output, print_query_table, print_table, row_to_fields
+from .llm import call_llm
+from .output import (
+    print_json_output,
+    print_llm_analysis,
+    print_query_table,
+    print_table,
+    row_to_fields,
+)
 from .smartctl import extract_fields, find_disks, run_smartctl
+from .thresholds import check_thresholds
 
 
 def do_collect(args: Namespace) -> None:
@@ -33,6 +41,9 @@ def do_collect(args: Namespace) -> None:
         logging.error("%s", exc)
         sys.exit(1)
 
+    thresholds_enabled = args.thresholds_enabled
+    llm_enabled = args.llm_enabled and not args.no_llm
+
     exit_code = 0
     for symlink in disks:
         disk_name = symlink.name
@@ -47,14 +58,28 @@ def do_collect(args: Namespace) -> None:
 
         fields = extract_fields(data)
 
+        alerts = []
+        if thresholds_enabled:
+            alerts = check_thresholds(fields, args.threshold_rules)
+
         if args.json:
             print_json_output(disk_name, disk_path, fields, data)
         else:
-            print_table(disk_name, fields)
+            print_table(disk_name, fields, alerts, verbose=args.verbose)
+
+        llm_analysis = None
+        if llm_enabled and alerts:
+            alerts_text = "\n".join(f"  - {a.message}" for a in alerts)
+            llm_analysis = call_llm(fields, alerts_text, args.llm_config)
+            if llm_analysis:
+                if not args.json:
+                    print_llm_analysis(llm_analysis)
 
         if conn:
             try:
-                save_to_db(conn, disk_name, disk_path, fields, data)
+                save_to_db(
+                    conn, disk_name, disk_path, fields, data, llm_analysis=llm_analysis
+                )
             except sqlite3.Error as exc:
                 logging.error("Failed to save SMART data for %s: %s", disk_name, exc)
 
@@ -89,11 +114,13 @@ def do_query(args: Namespace) -> None:
     for row in rows:
         fields = row_to_fields(row)
         if args.json:
+            llm_col = row["llm_analysis"] if "llm_analysis" in row.keys() else None
             print_json_output(
                 row["disk_name"],
                 row["disk_path"],
                 fields,
                 timestamp=row["timestamp"],
+                llm_analysis=llm_col,
             )
         else:
             print_query_table(
@@ -101,6 +128,7 @@ def do_query(args: Namespace) -> None:
                 row["disk_path"],
                 row["timestamp"],
                 fields,
+                verbose=args.verbose,
             )
 
     conn.close()

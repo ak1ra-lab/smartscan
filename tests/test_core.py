@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import pytest
+from conftest import make_fields
 
 from smartscan.database import init_db, parse_date, query_smart_info, save_to_db
 from smartscan.exceptions import InvalidDateError
-from smartscan.models import SmartInfo
+from smartscan.models import ThresholdRules
 from smartscan.smartctl import extract_fields, find_in_table, safe_get
+from smartscan.thresholds import check_thresholds
 
 
 class TestSafeGet:
@@ -41,6 +43,7 @@ class TestFindInTable:
                 "table": [
                     {"name": "Temperature_Celsius", "raw": {"string": "35"}},
                     {"name": "Reallocated_Sector_Ct", "raw": {"string": "0"}},
+                    {"name": "Current_Pending_Sector", "raw": {"string": "0"}},
                 ]
             }
         }
@@ -52,6 +55,23 @@ class TestFindInTable:
             ("raw", "string"),
         )
         assert result == "0"
+
+    def test_find_current_pending(self) -> None:
+        data = {
+            "ata_smart_attributes": {
+                "table": [
+                    {"name": "Current_Pending_Sector", "raw": {"string": "3"}},
+                ]
+            }
+        }
+        result = find_in_table(
+            data,
+            ("ata_smart_attributes", "table"),
+            "name",
+            "Current_Pending_Sector",
+            ("raw", "string"),
+        )
+        assert result == "3"
 
     def test_not_found_returns_default(self) -> None:
         data = {"ata_smart_attributes": {"table": []}}
@@ -81,11 +101,14 @@ class TestExtractFields:
         data = {
             "model_family": "Seagate BarraCuda",
             "model_name": "ST2000DM008-2FR102",
+            "serial_number": "ABC123",
+            "firmware_version": "1.0",
             "user_capacity": {"bytes": 2000398934016},
             "rotation_rate": 7200,
             "interface_speed": {"current": {"string": "6.0 Gb/s"}},
             "power_on_time": {"hours": 12345},
             "power_cycle_count": 500,
+            "smart_status": {"passed": True},
             "temperature": {"current": 35},
             "ata_smart_error_log": {"summary": {"count": 0}},
             "ata_smart_data": {
@@ -95,15 +118,27 @@ class TestExtractFields:
         fields = extract_fields(data)
         assert fields["model_family"] == "Seagate BarraCuda"
         assert fields["model_name"] == "ST2000DM008-2FR102"
+        assert fields["serial_number"] == "ABC123"
+        assert fields["firmware_version"] == "1.0"
         assert fields["user_capacity_bytes"] == 2000398934016
         assert fields["user_capacity_gib"] == pytest.approx(1863.01, abs=0.01)
         assert fields["rotation_rate_display"] == "7200 rpm"
         assert fields["interface_speed"] == "6.0 Gb/s"
         assert fields["power_on_time"] == "12345"
         assert fields["power_cycle_count"] == "500"
+        assert fields["smart_status"] == "PASSED"
         assert fields["temperature"] == "35"
         assert fields["ata_smart_error_log"] == "0"
         assert fields["self_test_status"] == "Completed without error"
+
+    def test_smart_status_failed(self) -> None:
+        data = {
+            "model_family": "Failing Drive",
+            "model_name": "WD10EZEX",
+            "smart_status": {"passed": False},
+        }
+        fields = extract_fields(data)
+        assert fields["smart_status"] == "FAILED"
 
     def test_ssd_rotation_rate_display(self) -> None:
         data = {
@@ -114,6 +149,7 @@ class TestExtractFields:
             "interface_speed": {"current": {"string": "6.0 Gb/s"}},
             "power_on_time": {"hours": 1000},
             "power_cycle_count": 100,
+            "smart_status": {"passed": True},
             "temperature": {"current": 30},
             "ata_smart_error_log": {"summary": {"count": 0}},
             "ata_smart_data": {"self_test": {"status": {"string": "Completed"}}},
@@ -131,6 +167,7 @@ class TestExtractFields:
             "interface_speed": {"current": {"string": "6.0 Gb/s"}},
             "power_on_time": {"hours": 50000},
             "power_cycle_count": 2000,
+            "smart_status": {"passed": True},
             "temperature": {"current": 40},
             "ata_smart_attributes": {
                 "table": [
@@ -145,16 +182,181 @@ class TestExtractFields:
         fields = extract_fields(data)
         assert fields["reallocated_sector_ct"] == "5"
 
+    def test_extract_all_new_attributes(self) -> None:
+        data = {
+            "model_family": "Full Drive",
+            "model_name": "Full Model",
+            "user_capacity": {"bytes": 1000000000000},
+            "rotation_rate": 7200,
+            "interface_speed": {"current": {"string": "6.0 Gb/s"}},
+            "power_on_time": {"hours": 10000},
+            "power_cycle_count": 50,
+            "smart_status": {"passed": True},
+            "temperature": {"current": 30},
+            "ata_smart_attributes": {
+                "table": [
+                    {"name": "Reallocated_Sector_Ct", "raw": {"string": "0"}},
+                    {"name": "Current_Pending_Sector", "raw": {"string": "0"}},
+                    {"name": "Offline_Uncorrectable", "raw": {"string": "0"}},
+                    {"name": "Reallocated_Event_Count", "raw": {"string": "1"}},
+                    {"name": "UDMA_CRC_Error_Count", "raw": {"string": "2"}},
+                    {"name": "Raw_Read_Error_Rate", "raw": {"string": "3"}},
+                    {"name": "Spin_Retry_Count", "raw": {"string": "0"}},
+                    {"name": "Power-Off_Retract_Count", "raw": {"string": "10"}},
+                    {"name": "Load_Cycle_Count", "raw": {"string": "500"}},
+                    {"name": "Helium_Level", "raw": {"string": "100"}},
+                ]
+            },
+            "ata_smart_error_log": {"summary": {"count": 0}},
+            "ata_smart_data": {
+                "self_test": {"status": {"string": "Completed without error"}}
+            },
+        }
+        fields = extract_fields(data)
+        assert fields["current_pending_sector"] == "0"
+        assert fields["offline_uncorrectable"] == "0"
+        assert fields["reallocated_event_count"] == "1"
+        assert fields["udma_crc_error_count"] == "2"
+        assert fields["raw_read_error_rate"] == "3"
+        assert fields["spin_retry_count"] == "0"
+        assert fields["power_off_retract_count"] == "10"
+        assert fields["load_cycle_count"] == "500"
+        assert fields["helium_level"] == "100"
+
     def test_missing_optional_fields(self) -> None:
         data: dict = {}
         fields = extract_fields(data)
         assert fields["model_family"] == "N/A"
         assert fields["model_name"] == "N/A"
+        assert fields["serial_number"] == "N/A"
+        assert fields["firmware_version"] == "N/A"
         assert fields["user_capacity_bytes"] == 0
         assert fields["user_capacity_gib"] is None
+        assert fields["smart_status"] == "FAILED"
         assert fields["reallocated_sector_ct"] == "0"
+        assert fields["current_pending_sector"] == "0"
+        assert fields["offline_uncorrectable"] == "0"
         assert fields["ata_smart_error_log"] == "0"
         assert fields["self_test_status"] == "N/A"
+
+
+class TestThresholds:
+    def test_no_alerts_on_healthy_drive(self) -> None:
+        fields = make_fields(
+            smart_status="PASSED",
+            temperature="35",
+            reallocated_sector_ct="0",
+            current_pending_sector="0",
+            offline_uncorrectable="0",
+        )
+        rules = ThresholdRules()
+        alerts = check_thresholds(fields, rules)
+        assert alerts == []
+
+    def test_smart_status_failed_critical(self) -> None:
+        fields = make_fields(smart_status="FAILED")
+        rules = ThresholdRules()
+        alerts = check_thresholds(fields, rules)
+        assert len(alerts) == 1
+        assert alerts[0].field == "smart_status"
+        assert alerts[0].level == "critical"
+
+    def test_temperature_warning(self) -> None:
+        fields = make_fields(temperature="55")
+        rules = ThresholdRules(temperature_celsius=50)
+        alerts = check_thresholds(fields, rules)
+        assert any(a.field == "temperature" and a.level == "warning" for a in alerts)
+
+    def test_temperature_ok_below_threshold(self) -> None:
+        fields = make_fields(temperature="49")
+        rules = ThresholdRules(temperature_celsius=50)
+        alerts = check_thresholds(fields, rules)
+        assert not any(a.field == "temperature" for a in alerts)
+
+    def test_reallocated_sector_warning(self) -> None:
+        fields = make_fields(reallocated_sector_ct="5")
+        rules = ThresholdRules()
+        alerts = check_thresholds(fields, rules)
+        assert any(
+            a.field == "reallocated_sector_ct" and a.level == "warning" for a in alerts
+        )
+
+    def test_reallocated_sector_critical_above_10(self) -> None:
+        fields = make_fields(reallocated_sector_ct="21")
+        rules = ThresholdRules()
+        alerts = check_thresholds(fields, rules)
+        realloc_alerts = [a for a in alerts if a.field == "reallocated_sector_ct"]
+        assert len(realloc_alerts) == 1
+        assert realloc_alerts[0].level == "critical"
+
+    def test_pending_sector_critical(self) -> None:
+        fields = make_fields(current_pending_sector="3")
+        rules = ThresholdRules()
+        alerts = check_thresholds(fields, rules)
+        assert any(
+            a.field == "current_pending_sector" and a.level == "critical"
+            for a in alerts
+        )
+
+    def test_offline_uncorrectable_critical(self) -> None:
+        fields = make_fields(offline_uncorrectable="1")
+        rules = ThresholdRules()
+        alerts = check_thresholds(fields, rules)
+        assert any(
+            a.field == "offline_uncorrectable" and a.level == "critical" for a in alerts
+        )
+
+    def test_self_test_failure_warning(self) -> None:
+        fields = make_fields(self_test_status="Failed in segment 3")
+        rules = ThresholdRules()
+        alerts = check_thresholds(fields, rules)
+        assert any(
+            a.field == "self_test_status" and a.level == "warning" for a in alerts
+        )
+
+    def test_self_test_healthy(self) -> None:
+        fields = make_fields(self_test_status="Completed without error")
+        rules = ThresholdRules()
+        alerts = check_thresholds(fields, rules)
+        assert not any(a.field == "self_test_status" for a in alerts)
+
+    def test_multiple_alerts(self) -> None:
+        fields = make_fields(
+            smart_status="FAILED",
+            temperature="60",
+            reallocated_sector_ct="15",
+            current_pending_sector="2",
+        )
+        rules = ThresholdRules(temperature_celsius=50)
+        alerts = check_thresholds(fields, rules)
+        assert len(alerts) >= 4
+
+    def test_disabled_thresholds(self) -> None:
+        fields = make_fields(
+            smart_status="FAILED",
+            temperature="60",
+        )
+        rules = ThresholdRules(enabled=False)
+        alerts = check_thresholds(fields, rules)
+        assert alerts == []
+
+    def test_custom_threshold_values(self) -> None:
+        fields = make_fields(temperature="55")
+        rules = ThresholdRules(temperature_celsius=60)
+        alerts = check_thresholds(fields, rules)
+        assert not any(a.field == "temperature" for a in alerts)
+
+    def test_load_cycle_warning(self) -> None:
+        fields = make_fields(load_cycle_count="700000")
+        rules = ThresholdRules()
+        alerts = check_thresholds(fields, rules)
+        assert any(a.field == "load_cycle_count" for a in alerts)
+
+    def test_udma_crc_warning(self) -> None:
+        fields = make_fields(udma_crc_error_count="5")
+        rules = ThresholdRules()
+        alerts = check_thresholds(fields, rules)
+        assert any(a.field == "udma_crc_error_count" for a in alerts)
 
 
 class TestParseDate:
@@ -183,10 +385,19 @@ class TestDatabase:
         assert "smart_info" in names
         conn.close()
 
+    def test_init_db_runs_migrations(self) -> None:
+        conn = init_db(":memory:")
+        columns = conn.execute("PRAGMA table_info(smart_info)").fetchall()
+        col_names = [row["name"] for row in columns]
+        assert "smart_status" in col_names
+        assert "current_pending_sector" in col_names
+        assert "llm_analysis" in col_names
+        conn.close()
+
     def test_save_and_query(self) -> None:
         conn = init_db(":memory:")
 
-        fields = SmartInfo(
+        fields = make_fields(
             model_family="Test Family",
             model_name="Test Model",
             user_capacity_bytes=1000,
@@ -211,24 +422,28 @@ class TestDatabase:
 
         conn.close()
 
+    def test_save_with_llm_analysis(self) -> None:
+        conn = init_db(":memory:")
+        fields = make_fields(reallocated_sector_ct="21")
+        save_to_db(
+            conn,
+            "sda",
+            "/dev/sda",
+            fields,
+            {},
+            llm_analysis="Drive has 21 reallocated sectors — replace soon.",
+        )
+        rows = query_smart_info(conn, None, None, None)
+        assert (
+            rows[0]["llm_analysis"]
+            == "Drive has 21 reallocated sectors — replace soon."
+        )
+        conn.close()
+
     def test_query_with_pattern(self) -> None:
         conn = init_db(":memory:")
 
-        fields = SmartInfo(
-            model_family="",
-            model_name="",
-            user_capacity_bytes=0,
-            user_capacity_gib=None,
-            rotation_rate="",
-            rotation_rate_display="",
-            interface_speed="",
-            power_on_time="",
-            power_cycle_count="",
-            temperature="",
-            reallocated_sector_ct="0",
-            ata_smart_error_log="",
-            self_test_status="",
-        )
+        fields = make_fields()
         save_to_db(conn, "ata-WDC", "/dev/sda", fields, {})
         save_to_db(conn, "ata-Samsung", "/dev/sdb", fields, {})
 

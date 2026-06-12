@@ -70,6 +70,17 @@ def _build_parser(config: SmartScanConfig | None = None) -> argparse.ArgumentPar
         default=cfg.no_save,
         help="Skip saving SMART data to database",
     )
+    collect_parser.add_argument(
+        "--no-llm",
+        action="store_true",
+        help="Skip LLM analysis even if configured",
+    )
+    collect_parser.add_argument(
+        "--verbose",
+        "-v",
+        action="store_true",
+        help="Show extended fields in terminal output",
+    )
 
     query_parser = sub.add_parser(
         "query", help="Query historical SMART data from database"
@@ -90,6 +101,12 @@ def _build_parser(config: SmartScanConfig | None = None) -> argparse.ArgumentPar
         metavar="DATE",
         help="End date (YYYY-MM-DD) for query",
     )
+    query_parser.add_argument(
+        "--verbose",
+        "-v",
+        action="store_true",
+        help="Show extended fields in terminal output",
+    )
 
     argcomplete.autocomplete(parser)
     return parser
@@ -108,6 +125,11 @@ def main() -> None:
         args = parser.parse_args(remaining)
 
         setup_logging(args.log_file)
+
+        args.thresholds_enabled = config.thresholds.enabled
+        args.threshold_rules = config.thresholds
+        args.llm_enabled = config.llm.enabled
+        args.llm_config = config.llm
 
         if args.command == "query":
             do_query(args)

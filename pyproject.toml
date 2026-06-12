@@ -5,6 +5,7 @@ description = "A CLI tool that runs smartctl on all disks, extracts key SMART he
 authors = [{ name = "ak1ra", email = "git@ak1ra.xyz" }]
 dependencies = [
     "argcomplete>=3.6.3",
+    "httpx2>=2.4",
     "pydantic>=2.0",
     "rich>=13.0",
 ]

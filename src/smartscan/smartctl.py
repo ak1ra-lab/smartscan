@@ -141,10 +141,22 @@ def run_smartctl(disk_path: Path) -> tuple[dict[str, Any], int]:
     return data, result.returncode
 
 
+_ATA_ATTRIBUTES = (
+    "ata_smart_attributes",
+    "table",
+)
+
+
+def _find_attr(data: dict[str, Any], name: str) -> str:
+    return find_in_table(data, _ATA_ATTRIBUTES, "name", name, ("raw", "string"))
+
+
 def extract_fields(data: dict[str, Any]) -> SmartInfo:
     """Extract key SMART health metrics from raw smartctl JSON output into a typed dict."""
     model_family = str(safe_get(data, "model_family"))
     model_name = str(safe_get(data, "model_name"))
+    serial_number = str(safe_get(data, "serial_number"))
+    firmware_version = str(safe_get(data, "firmware_version"))
 
     uc_bytes = safe_get(data, "user_capacity", "bytes", default=0)
     try:
@@ -164,15 +176,21 @@ def extract_fields(data: dict[str, Any]) -> SmartInfo:
 
     power_on_time = str(safe_get(data, "power_on_time", "hours"))
     power_cycle_count = str(safe_get(data, "power_cycle_count"))
+
+    smart_passed = safe_get(data, "smart_status", "passed", default=False)
+    smart_status = "PASSED" if smart_passed is True else "FAILED"
     temperature = str(safe_get(data, "temperature", "current"))
 
-    realloc = find_in_table(
-        data,
-        ("ata_smart_attributes", "table"),
-        "name",
-        "Reallocated_Sector_Ct",
-        ("raw", "string"),
-    )
+    realloc = _find_attr(data, "Reallocated_Sector_Ct")
+    current_pending = _find_attr(data, "Current_Pending_Sector")
+    offline_uncorrectable = _find_attr(data, "Offline_Uncorrectable")
+    reallocated_event = _find_attr(data, "Reallocated_Event_Count")
+    udma_crc = _find_attr(data, "UDMA_CRC_Error_Count")
+    raw_read = _find_attr(data, "Raw_Read_Error_Rate")
+    spin_retry = _find_attr(data, "Spin_Retry_Count")
+    power_off_retract = _find_attr(data, "Power-Off_Retract_Count")
+    load_cycle = _find_attr(data, "Load_Cycle_Count")
+    helium = _find_attr(data, "Helium_Level")
 
     error_log = str(
         safe_get(data, "ata_smart_error_log", "summary", "count", default="0")
@@ -182,6 +200,8 @@ def extract_fields(data: dict[str, Any]) -> SmartInfo:
     return SmartInfo(
         model_family=model_family,
         model_name=model_name,
+        serial_number=serial_number,
+        firmware_version=firmware_version,
         user_capacity_bytes=uc_bytes,
         user_capacity_gib=uc_gib,
         rotation_rate=rotation_rate,
@@ -189,8 +209,18 @@ def extract_fields(data: dict[str, Any]) -> SmartInfo:
         interface_speed=interface_speed,
         power_on_time=power_on_time,
         power_cycle_count=power_cycle_count,
+        smart_status=smart_status,
         temperature=temperature,
         reallocated_sector_ct=realloc,
+        current_pending_sector=current_pending,
+        offline_uncorrectable=offline_uncorrectable,
+        reallocated_event_count=reallocated_event,
         ata_smart_error_log=error_log,
         self_test_status=self_test,
+        udma_crc_error_count=udma_crc,
+        raw_read_error_rate=raw_read,
+        spin_retry_count=spin_retry,
+        power_off_retract_count=power_off_retract,
+        load_cycle_count=load_cycle,
+        helium_level=helium,
     )
