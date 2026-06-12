@@ -1,3 +1,5 @@
+# PYTHON_ARGCOMPLETE_OK
+
 """CLI entry point with argparse subcommands for collect and query modes."""
 
 from __future__ import annotations
@@ -5,6 +7,8 @@ from __future__ import annotations
 import argparse
 import logging
 import sys
+
+import argcomplete
 
 from .commands import do_collect, do_query
 from .config import load_config
@@ -87,6 +91,7 @@ def _build_parser(config: SmartScanConfig | None = None) -> argparse.ArgumentPar
         help="End date (YYYY-MM-DD) for query",
     )
 
+    argcomplete.autocomplete(parser)
     return parser
 
 
