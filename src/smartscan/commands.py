@@ -113,6 +113,11 @@ def do_query(args: Namespace) -> None:
 
     for row in rows:
         fields = row_to_fields(row)
+
+        alerts = []
+        if args.thresholds_enabled:
+            alerts = check_thresholds(fields, args.threshold_rules)
+
         if args.json:
             llm_col = row["llm_analysis"] if "llm_analysis" in row.keys() else None
             print_json_output(
@@ -128,6 +133,7 @@ def do_query(args: Namespace) -> None:
                 row["disk_path"],
                 row["timestamp"],
                 fields,
+                alerts=alerts,
                 verbose=args.verbose,
             )
 
