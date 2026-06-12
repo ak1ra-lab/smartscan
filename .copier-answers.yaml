@@ -14,9 +14,7 @@ docs_site_path: /smartscan/
 docs_site_url: https://ak1ra-lab.github.io/smartscan/
 project_description: 'A CLI tool that runs smartctl on all disks, extracts key SMART
     health metrics, and stores historical results in SQLite for tracking changes over
-    time.
-
-    '
+    time.'
 project_kind: cli
 project_name: smartscan
 python_min_version: '3.11'
