@@ -11,8 +11,6 @@ site_dir = "site"
 dev_addr = "0.0.0.0:8000"
 nav = [
   { "Home" = "index.md" },
-  { "Getting Started" = "getting-started.md" },
-  { "API" = "api.md" },
 ]
 
 [project.theme]
@@ -34,12 +32,3 @@ features = [
 permalink = true
 
 [project.markdown_extensions.pymdownx.superfences]
-
-[project.plugins.mkdocstrings.handlers.python]
-paths = ["src"]
-
-[project.plugins.mkdocstrings.handlers.python.options]
-members = true
-show_source = false
-imported_members = false
-show_bases = false
