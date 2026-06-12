@@ -1,7 +1,7 @@
 [project]
 name = "smartscan"
 dynamic = ["version"]
-description = "A CLI tool that runs smartctl on all disks, extracts key SMART health metrics, and stores historical results in SQLite for tracking changes over time."
+description = "A CLI tool that collects SMART data from disk devices, checks configurable health thresholds, optionally analyses results with an LLM, and tracks history in SQLite."
 authors = [{ name = "ak1ra", email = "git@ak1ra.xyz" }]
 dependencies = [
     "argcomplete>=3.6.3",
