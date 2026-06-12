@@ -39,7 +39,7 @@ jobs:
 
       - name: Build a binary wheel and a source tarball
         run: |-
-          git tag "$(git describe --tags --always | cut -d- -f1,2)"
+          git tag -f "$(git describe --tags --always | cut -d- -f1,2)"
           uv build -v
 
       - name: Publish package distributions to Test PyPI
