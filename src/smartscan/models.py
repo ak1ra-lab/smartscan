@@ -6,7 +6,7 @@ from typing import Literal, TypedDict
 
 from pydantic import BaseModel, Field
 
-from .constants import DEFAULT_DB_PATH, DEFAULT_LOG_FILE
+from .constants import DEFAULT_DB_PATH, DEFAULT_LOG_FILE, DEFAULT_SYSTEM_PROMPT
 
 
 class SmartInfo(TypedDict):
@@ -57,6 +57,9 @@ class LLMConfig(BaseModel):
     model: str = "gpt-4o-mini"
     max_tokens: int = 500
     timeout: int = 30
+    temperature: float = 0.3
+    delay: float = 0.0
+    system_prompt: str = DEFAULT_SYSTEM_PROMPT
 
 
 class SmartScanConfig(BaseModel):

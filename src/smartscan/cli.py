@@ -71,13 +71,13 @@ def _build_parser(config: SmartScanConfig | None = None) -> argparse.ArgumentPar
         help="Skip saving SMART data to database",
     )
     collect_parser.add_argument(
-        "--no-llm",
+        "--force-llm",
         action="store_true",
-        help="Skip LLM analysis even if configured",
+        help="Force LLM analysis on all disks, bypassing both config and threshold checks",
     )
     collect_parser.add_argument(
-        "--verbose",
         "-v",
+        "--verbose",
         action="store_true",
         help="Show extended fields in terminal output",
     )
@@ -128,7 +128,6 @@ def main() -> None:
 
         args.thresholds_enabled = config.thresholds.enabled
         args.threshold_rules = config.thresholds
-        args.llm_enabled = config.llm.enabled
         args.llm_config = config.llm
 
         if args.command == "query":

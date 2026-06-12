@@ -6,6 +6,7 @@ import logging
 import os
 import sqlite3
 import sys
+import time
 from argparse import Namespace
 
 from .database import init_db, open_db, query_smart_info, save_to_db
@@ -42,10 +43,9 @@ def do_collect(args: Namespace) -> None:
         sys.exit(1)
 
     thresholds_enabled = args.thresholds_enabled
-    llm_enabled = args.llm_enabled and not args.no_llm
 
     exit_code = 0
-    for symlink in disks:
+    for disk_idx, symlink in enumerate(disks):
         disk_name = symlink.name
         disk_path = os.readlink(symlink)
 
@@ -68,12 +68,16 @@ def do_collect(args: Namespace) -> None:
             print_table(disk_name, fields, alerts, verbose=args.verbose)
 
         llm_analysis = None
-        if llm_enabled and alerts:
-            alerts_text = "\n".join(f"  - {a.message}" for a in alerts)
-            llm_analysis = call_llm(fields, alerts_text, args.llm_config)
-            if llm_analysis:
-                if not args.json:
-                    print_llm_analysis(llm_analysis)
+        if args.force_llm or (args.llm_config.enabled and alerts):
+            alerts_text = (
+                "\n".join(f"  - {a.message}" for a in alerts) if alerts else "  (none)"
+            )
+            llm_analysis = call_llm(fields, alerts_text, args.llm_config, raw_data=data)
+        if llm_analysis:
+            if not args.json:
+                print_llm_analysis(llm_analysis)
+            if args.llm_config.delay > 0 and disk_idx < len(disks) - 1:
+                time.sleep(args.llm_config.delay)
 
         if conn:
             try:

@@ -8,7 +8,7 @@ def test_create_parser_collect_subcommand() -> None:
     assert args.pattern == ".*"
     assert args.json is False
     assert args.no_save is False
-    assert args.no_llm is False
+    assert args.force_llm is False
     assert args.verbose is False
 
 
@@ -30,11 +30,13 @@ def test_collect_with_pattern() -> None:
 
 def test_collect_with_flags() -> None:
     parser = create_parser()
-    args = parser.parse_args(["--json", "collect", "--no-save", "--no-llm", "Samsung"])
+    args = parser.parse_args(
+        ["--json", "collect", "--no-save", "--force-llm", "Samsung"]
+    )
     assert args.command == "collect"
     assert args.json is True
     assert args.no_save is True
-    assert args.no_llm is True
+    assert args.force_llm is True
     assert args.pattern == "Samsung"
 
 
@@ -45,11 +47,11 @@ def test_collect_verbose_flag() -> None:
     assert args.verbose is True
 
 
-def test_collect_no_llm_flag() -> None:
+def test_collect_force_llm_flag() -> None:
     parser = create_parser()
-    args = parser.parse_args(["collect", "--no-llm"])
+    args = parser.parse_args(["collect", "--force-llm"])
     assert args.command == "collect"
-    assert args.no_llm is True
+    assert args.force_llm is True
 
 
 def test_global_json_flag() -> None:

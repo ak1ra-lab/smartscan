@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
+import json
 import logging
+from typing import Any
 
-from .constants import DEFAULT_SYSTEM_PROMPT
 from .models import LLMConfig, SmartInfo
 
 
-def _build_prompt(fields: SmartInfo, alerts_text: str) -> str:
+def _build_prompt(
+    fields: SmartInfo, alerts_text: str, raw_data: dict[str, Any] | None = None
+) -> str:
     lines = [
         "SMART Data for Analysis:",
         "",
@@ -38,10 +41,13 @@ def _build_prompt(fields: SmartInfo, alerts_text: str) -> str:
         f"    Load Cycle Count:        {fields['load_cycle_count']}",
         f"    Power-Off Retract Count: {fields['power_off_retract_count']}",
         f"    Helium Level:            {fields['helium_level']}",
-        "",
-        "Triggered Alerts:",
-        alerts_text,
     ]
+
+    if raw_data:
+        raw_json = json.dumps(raw_data, indent=2, ensure_ascii=False)
+        lines.extend(["", "Raw smartctl JSON:", "```json", raw_json, "```"])
+
+    lines.extend(["", "Triggered Alerts:", alerts_text])
     return "\n".join(lines)
 
 
@@ -49,6 +55,7 @@ def call_llm(
     fields: SmartInfo,
     alerts_text: str,
     config: LLMConfig,
+    raw_data: dict[str, Any] | None = None,
 ) -> str | None:
     """Call the OpenAI-compatible chat completions API.
 
@@ -56,17 +63,17 @@ def call_llm(
     """
     import httpx2
 
-    user_prompt = _build_prompt(fields, alerts_text)
+    user_prompt = _build_prompt(fields, alerts_text, raw_data=raw_data)
     endpoint = config.endpoint.rstrip("/") + "/chat/completions"
 
     body = {
         "model": config.model,
         "messages": [
-            {"role": "system", "content": DEFAULT_SYSTEM_PROMPT},
+            {"role": "system", "content": config.system_prompt},
             {"role": "user", "content": user_prompt},
         ],
         "max_tokens": config.max_tokens,
-        "temperature": 0.3,
+        "temperature": config.temperature,
     }
 
     try:

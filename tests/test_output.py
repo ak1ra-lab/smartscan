@@ -10,20 +10,25 @@ from smartscan.output import print_json_output, row_to_fields
 
 def _make_row(data: dict) -> sqlite3.Row:
     conn = sqlite3.connect(":memory:")
-    conn.execute(
-        "CREATE TABLE t (model_family, model_name, serial_number, firmware_version, "
-        "user_capacity_bytes, user_capacity_gib, rotation_rate, interface_speed, "
-        "power_on_time_hours, power_cycle_count, smart_status, temperature_celsius, "
-        "reallocated_sector_ct, current_pending_sector, offline_uncorrectable, "
-        "reallocated_event_count, ata_smart_error_log_count, self_test_status, "
-        "udma_crc_error_count, raw_read_error_rate, spin_retry_count, "
-        "power_off_retract_count, load_cycle_count, helium_level)"
-    )
-    cols = ", ".join(data.keys())
-    placeholders = ", ".join("?" * len(data))
-    conn.execute(f"INSERT INTO t ({cols}) VALUES ({placeholders})", list(data.values()))
-    conn.row_factory = sqlite3.Row
-    return conn.execute("SELECT * FROM t").fetchone()
+    try:
+        conn.execute(
+            "CREATE TABLE t (model_family, model_name, serial_number, firmware_version, "
+            "user_capacity_bytes, user_capacity_gib, rotation_rate, interface_speed, "
+            "power_on_time_hours, power_cycle_count, smart_status, temperature_celsius, "
+            "reallocated_sector_ct, current_pending_sector, offline_uncorrectable, "
+            "reallocated_event_count, ata_smart_error_log_count, self_test_status, "
+            "udma_crc_error_count, raw_read_error_rate, spin_retry_count, "
+            "power_off_retract_count, load_cycle_count, helium_level)"
+        )
+        cols = ", ".join(data.keys())
+        placeholders = ", ".join("?" * len(data))
+        conn.execute(
+            f"INSERT INTO t ({cols}) VALUES ({placeholders})", list(data.values())
+        )
+        conn.row_factory = sqlite3.Row
+        return conn.execute("SELECT * FROM t").fetchone()
+    finally:
+        conn.close()
 
 
 class TestRowToFields:

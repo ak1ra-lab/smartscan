@@ -65,10 +65,13 @@ Create `~/.config/smartscan/smartscan.toml` (optional). All keys shown below wit
 # ── Output ─────────────────────────────────────────────────────
 # Output format: "table" or "json"
 format = "table"
+
 # Skip database writes (run once without saving)
 no_save = false
+
 # Custom database path
 db_path = "~/.local/share/smartscan/smartscan.db"
+
 # Custom log file path
 log_file = "~/.local/state/smartscan/smartscan.log"
 
@@ -87,12 +90,59 @@ load_cycle_count = 600_000
 
 # ── LLM-based health analysis ──────────────────────────────────
 [llm]
+# Set to true to enable LLM analysis (requires API key)
 enabled = false
+
+# OpenAI-compatible API endpoint
 endpoint = "https://api.openai.com/v1"
+
+# Your API key (or set OPENAI_API_KEY environment variable)
 api_key = ""
+
+# Model name as recognised by the endpoint
 model = "gpt-4o-mini"
+
+# Maximum tokens in the model response (output limit, not input)
 max_tokens = 500
+
+# HTTP request timeout in seconds
 timeout = 30
+
+# Controls randomness: 0.0 = deterministic, higher = more creative
+temperature = 0.3
+
+# Seconds to wait between LLM calls when processing multiple disks (avoids rate limits)
+delay = 0.0
+
+# System prompt sent as the first message to guide the model's behaviour
+system_prompt = """\
+You are a hard drive health diagnostic expert analyzing SMART data.
+Examine the provided SMART attributes and give a concise assessment:
+
+1. Overall health status: HEALTHY / WARNING / CRITICAL
+2. Key concerns with specific metric values (if any)
+3. Recommended action (one sentence)
+
+Be factual and conservative. Do not cause unnecessary alarm for borderline values.
+If all metrics are within normal ranges, state the drive is healthy.
+If you cannot make a definitive assessment, say so honestly."""
+```
+
+To force LLM analysis on healthy disks (no threshold alerts), use:
+
+    sudo smartscan collect --force-llm
+
+LLM example for DeepSeek (OpenAI-compatible),
+
+```
+# ── LLM example: DeepSeek (OpenAI-compatible) ──────────────────
+[llm]
+enabled = true
+endpoint = "https://api.deepseek.com"
+api_key = "sk-your-deepseek-key"
+model = "deepseek-v4-flash"
+max_tokens = 4096
+timeout = 60
 ```
 
 ## Shell completion
