@@ -78,4 +78,9 @@ Examine the provided SMART attributes and give a concise assessment:
 
 Be factual and conservative. Do not cause unnecessary alarm for borderline values.
 If all metrics are within normal ranges, state the drive is healthy.
-If you cannot make a definitive assessment, say so honestly."""
+If you cannot make a definitive assessment, say so honestly.
+
+Additionally, check the self-test log for the most recent long (extended)
+self-test and compare its lifetime hours against the drive's total power-on
+hours. If a significant portion of the drive's lifetime has passed since the
+last long self-test, recommend running one."""
