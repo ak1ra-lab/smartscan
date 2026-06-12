@@ -1,0 +1,31 @@
+# Changes here will be overwritten by Copier; NEVER EDIT MANUALLY
+_commit: 37da679
+_src_path: .
+author_email: git@ak1ra.xyz
+author_name: ak1ra
+copyright_date: '2026'
+copyright_holder: ak1ra
+copyright_holder_email: git@ak1ra.xyz
+copyright_license: MIT
+default_branch: master
+development_branch: dev
+docs_hosting: github-pages
+docs_site_path: /smartscan/
+docs_site_url: https://ak1ra-lab.github.io/smartscan/
+project_description: 'A CLI tool that runs smartctl on all disks, extracts key SMART
+    health metrics, and stores historical results in SQLite for tracking changes over
+    time.
+
+    '
+project_kind: cli
+project_name: smartscan
+python_min_version: '3.11'
+python_package_command_line_name: smartscan
+python_package_distribution_name: smartscan
+python_package_import_name: smartscan
+repository_name: smartscan
+repository_namespace: ak1ra-lab
+repository_provider_host: github.com
+repository_provider_kind: github
+requires_python: '>=3.11'
+with_ansible: false

@@ -1,0 +1,56 @@
+[project]
+name = "smartscan"
+dynamic = ["version"]
+description = "A CLI tool that runs smartctl on all disks, extracts key SMART health metrics, and stores historical results in SQLite for tracking changes over time."
+authors = [{ name = "ak1ra", email = "git@ak1ra.xyz" }]
+dependencies = [
+    "argcomplete>=3.6.3",
+]
+requires-python = ">=3.11"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+keywords = []
+readme = { file = "README.md", content-type = "text/markdown" }
+license = "MIT"
+
+[project.urls]
+Homepage = "https://github.com/ak1ra-lab/smartscan"
+Repository = "https://github.com/ak1ra-lab/smartscan"
+Documentation = "https://ak1ra-lab.github.io/smartscan/"
+
+[project.scripts]
+smartscan = "smartscan.cli:main"
+
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.version.raw-options]
+fallback_version = "0.1.0"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/smartscan"]
+
+[dependency-groups]
+tests = ["pytest>=9.0.3", "pytest-cov>=7.1.0"]
+lint = ["ruff>=0.15.17", "ty>=0.0.48"]
+docs = ["zensical>=0.0.45", "mkdocstrings-python>=2.0.4"]
+dev = [
+    { include-group = "tests" },
+    { include-group = "lint" },
+    { include-group = "docs" },
+    "pre-commit>=4.6.0",
+]
+
+[tool.pytest.ini_options]
+addopts = "-ra"
+testpaths = ["tests"]

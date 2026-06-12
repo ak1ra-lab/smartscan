@@ -1,0 +1,59 @@
+---
+name: docs
+
+on:
+  workflow_dispatch: ~
+  push:
+    branches:
+      - master
+    paths:
+      - "docs/**"
+      - "README.md"
+      - "zensical.toml"
+      - ".github/workflows/docs.yaml"
+
+permissions:
+  contents: read
+
+  pages: write
+  id-token: write
+
+
+concurrency:
+  group: docs
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Install the project
+        run: uv sync --locked --group docs
+
+      - name: Build documentation
+        run: uv run zensical build
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5
+
