@@ -2,6 +2,9 @@
 default:
     @just --list --unsorted
 
+# Run all available recipes
+all: lint typecheck test coverage build docs-build
+
 # Sync development dependencies (may update uv.lock if pyproject.toml changed)
 sync *ARGS:
     uv sync {{ARGS}} --group dev
@@ -25,7 +28,7 @@ coverage:
 
 # Build distribution packages
 build:
-    uv build -v
+    uv build
 
 # Serve documentation locally
 docs-serve:

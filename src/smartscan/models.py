@@ -28,6 +28,5 @@ class SmartInfo(TypedDict):
 class SmartScanConfig(BaseModel):
     format: Literal["table", "json"] = "table"
     no_save: bool = False
-    no_log_file: bool = False
     db_path: str = DEFAULT_DB_PATH
     log_file: str = DEFAULT_LOG_FILE

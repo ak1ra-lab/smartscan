@@ -49,8 +49,8 @@ smartscan query --since 2024-01-01
 JSON output for scripting:
 
 ```bash
-sudo smartscan collect --json
-smartscan query --json --since 2024-01-01
+sudo smartscan --json collect
+smartscan --json query --since 2024-01-01
 ```
 
 ## Configuration
@@ -62,8 +62,6 @@ Create `~/.config/smartscan/smartscan.toml` (optional):
 format = "table"
 # Skip database writes
 no_save = false
-# Disable file logging
-no_log_file = false
 # Custom database path
 db_path = "~/.local/share/smartscan/smartscan.db"
 # Custom log path
@@ -79,6 +77,7 @@ eval "$(register-python-argcomplete smartscan)"
 ## Common tasks
 
 ```bash
+just all
 just lint
 just typecheck
 just test

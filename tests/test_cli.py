@@ -53,7 +53,6 @@ def test_query_with_dates() -> None:
 
 def test_shared_global_args() -> None:
     parser = create_parser()
-    args = parser.parse_args(["--db-path", "/tmp/test.db", "--no-log-file", "collect"])
+    args = parser.parse_args(["--db-path", "/tmp/test.db", "collect"])
     assert args.command == "collect"
     assert args.db_path == "/tmp/test.db"
-    assert args.no_log_file is True

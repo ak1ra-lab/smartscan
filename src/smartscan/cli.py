@@ -43,12 +43,6 @@ def _build_parser(config: SmartScanConfig | None = None) -> argparse.ArgumentPar
         help=f"Log file path (default: {DEFAULT_LOG_FILE})",
     )
     parser.add_argument(
-        "--no-log-file",
-        action="store_true",
-        default=cfg.no_log_file,
-        help="Disable file logging",
-    )
-    parser.add_argument(
         "--json",
         action="store_true",
         default=cfg.format == "json",
@@ -96,9 +90,6 @@ def _build_parser(config: SmartScanConfig | None = None) -> argparse.ArgumentPar
     return parser
 
 
-_KNOWN_COMMANDS = {"collect", "query"}
-
-
 def main() -> None:
     """Entry point: load config, parse args, and dispatch to the appropriate subcommand."""
     try:
@@ -106,16 +97,12 @@ def main() -> None:
         pre_parser.add_argument("--config", default=DEFAULT_CONFIG_PATH)
         pre_args, remaining = pre_parser.parse_known_args()
 
-        if not any(arg in _KNOWN_COMMANDS for arg in remaining):
-            remaining.append("collect")
-
         config = load_config(pre_args.config)
 
         parser = _build_parser(config)
         args = parser.parse_args(remaining)
 
-        log_file = None if args.no_log_file else args.log_file
-        setup_logging(log_file)
+        setup_logging(args.log_file)
 
         if args.command == "query":
             do_query(args)

@@ -37,7 +37,7 @@ uv run smartscan query --since 2024-01-01
 JSON output:
 
 ```bash
-uv run smartscan collect --json
+uv run smartscan --json collect
 ```
 
 Filter disks by name pattern:
@@ -53,7 +53,6 @@ Optionally create `~/.config/smartscan/smartscan.toml`:
 ```toml
 format = "table"
 no_save = false
-no_log_file = false
 db_path = "~/.local/share/smartscan/smartscan.db"
 log_file = "~/.local/state/smartscan/smartscan.log"
 ```
@@ -61,6 +60,7 @@ log_file = "~/.local/state/smartscan/smartscan.log"
 ## Development
 
 ```bash
+just all     # lint, typecheck, test, coverage, build, docs-build
 just lint
 just typecheck
 just test

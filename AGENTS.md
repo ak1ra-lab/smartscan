@@ -50,10 +50,11 @@ smartscan is a CLI tool that runs `smartctl` on all disk devices, extracts key S
 ## Common Operations
 
 ```sh
-uv sync --group dev       # sync development dependencies
-just lint                          # lint and format source plus tests
-just typecheck                     # run Astral ty over src/
-just test                          # run the pytest suite
-just docs-build                    # build the static docs site with Zensical
-just docs-serve                    # preview docs locally on the configured dev address
+uv sync --group dev    # sync development dependencies
+just lint              # lint and format source plus tests
+just typecheck         # run Astral ty over src/
+just test              # run the pytest suite
+just all               # run lint, typecheck, test, coverage, build, docs-build
+just docs-build        # build the static docs site with Zensical
+just docs-serve        # preview docs locally on the configured dev address
 ```
