@@ -173,6 +173,60 @@ def _find_attr(data: dict[str, Any], name: str) -> str:
     return find_in_table(data, _ATA_ATTRIBUTES, "name", name, ("raw", "string"))
 
 
+def _extract_nvme_health(data: dict[str, Any]) -> dict[str, str]:
+    log = data.get("nvme_smart_health_information_log", {})
+
+    smart_passed = safe_get(data, "smart_status", "passed", default=False)
+    smart_status = "PASSED" if smart_passed is True else "FAILED"
+
+    return {
+        "power_on_time": str(safe_get(log, "power_on_hours", default="N/A")),
+        "power_cycle_count": str(safe_get(log, "power_cycles", default="N/A")),
+        "temperature": str(safe_get(log, "temperature", default="N/A")),
+        "smart_status": smart_status,
+        "error_log": str(safe_get(log, "num_err_log_entries", default="0")),
+        "self_test": str(safe_get(log, "self_test", "status", "string")),
+        "realloc": str(safe_get(log, "media_errors", default="N/A")),
+        "current_pending": "N/A",
+        "offline_uncorrectable": "N/A",
+        "reallocated_event": "N/A",
+        "udma_crc": "N/A",
+        "raw_read": "N/A",
+        "spin_retry": "N/A",
+        "power_off_retract": "N/A",
+        "load_cycle": "N/A",
+        "helium": "N/A",
+    }
+
+
+def _extract_ata_health(data: dict[str, Any]) -> dict[str, str]:
+    smart_passed = safe_get(data, "smart_status", "passed", default=False)
+    smart_status = "PASSED" if smart_passed is True else "FAILED"
+
+    return {
+        "power_on_time": str(safe_get(data, "power_on_time", "hours")),
+        "power_cycle_count": str(safe_get(data, "power_cycle_count")),
+        "temperature": str(safe_get(data, "temperature", "current")),
+        "smart_status": smart_status,
+        "error_log": str(
+            safe_get(data, "ata_smart_error_log", "summary", "count", default="0")
+        ),
+        "self_test": str(
+            safe_get(data, "ata_smart_data", "self_test", "status", "string")
+        ),
+        "realloc": _find_attr(data, "Reallocated_Sector_Ct"),
+        "current_pending": _find_attr(data, "Current_Pending_Sector"),
+        "offline_uncorrectable": _find_attr(data, "Offline_Uncorrectable"),
+        "reallocated_event": _find_attr(data, "Reallocated_Event_Count"),
+        "udma_crc": _find_attr(data, "UDMA_CRC_Error_Count"),
+        "raw_read": _find_attr(data, "Raw_Read_Error_Rate"),
+        "spin_retry": _find_attr(data, "Spin_Retry_Count"),
+        "power_off_retract": _find_attr(data, "Power-Off_Retract_Count"),
+        "load_cycle": _find_attr(data, "Load_Cycle_Count"),
+        "helium": _find_attr(data, "Helium_Level"),
+    }
+
+
 def extract_fields(data: dict[str, Any]) -> SmartInfo:
     """Extract key SMART health metrics from raw smartctl JSON output into a typed dict."""
     model_family = str(safe_get(data, "model_family"))
@@ -196,28 +250,10 @@ def extract_fields(data: dict[str, Any]) -> SmartInfo:
 
     interface_speed = str(safe_get(data, "interface_speed", "current", "string"))
 
-    power_on_time = str(safe_get(data, "power_on_time", "hours"))
-    power_cycle_count = str(safe_get(data, "power_cycle_count"))
-
-    smart_passed = safe_get(data, "smart_status", "passed", default=False)
-    smart_status = "PASSED" if smart_passed is True else "FAILED"
-    temperature = str(safe_get(data, "temperature", "current"))
-
-    realloc = _find_attr(data, "Reallocated_Sector_Ct")
-    current_pending = _find_attr(data, "Current_Pending_Sector")
-    offline_uncorrectable = _find_attr(data, "Offline_Uncorrectable")
-    reallocated_event = _find_attr(data, "Reallocated_Event_Count")
-    udma_crc = _find_attr(data, "UDMA_CRC_Error_Count")
-    raw_read = _find_attr(data, "Raw_Read_Error_Rate")
-    spin_retry = _find_attr(data, "Spin_Retry_Count")
-    power_off_retract = _find_attr(data, "Power-Off_Retract_Count")
-    load_cycle = _find_attr(data, "Load_Cycle_Count")
-    helium = _find_attr(data, "Helium_Level")
-
-    error_log = str(
-        safe_get(data, "ata_smart_error_log", "summary", "count", default="0")
-    )
-    self_test = str(safe_get(data, "ata_smart_data", "self_test", "status", "string"))
+    if "nvme_smart_health_information_log" in data:
+        h = _extract_nvme_health(data)
+    else:
+        h = _extract_ata_health(data)
 
     return SmartInfo(
         model_family=model_family,
@@ -229,20 +265,20 @@ def extract_fields(data: dict[str, Any]) -> SmartInfo:
         rotation_rate=rotation_rate,
         rotation_rate_display=rr_display,
         interface_speed=interface_speed,
-        power_on_time=power_on_time,
-        power_cycle_count=power_cycle_count,
-        smart_status=smart_status,
-        temperature=temperature,
-        reallocated_sector_ct=realloc,
-        current_pending_sector=current_pending,
-        offline_uncorrectable=offline_uncorrectable,
-        reallocated_event_count=reallocated_event,
-        ata_smart_error_log=error_log,
-        self_test_status=self_test,
-        udma_crc_error_count=udma_crc,
-        raw_read_error_rate=raw_read,
-        spin_retry_count=spin_retry,
-        power_off_retract_count=power_off_retract,
-        load_cycle_count=load_cycle,
-        helium_level=helium,
+        power_on_time=h["power_on_time"],
+        power_cycle_count=h["power_cycle_count"],
+        smart_status=h["smart_status"],
+        temperature=h["temperature"],
+        reallocated_sector_ct=h["realloc"],
+        current_pending_sector=h["current_pending"],
+        offline_uncorrectable=h["offline_uncorrectable"],
+        reallocated_event_count=h["reallocated_event"],
+        ata_smart_error_log=h["error_log"],
+        self_test_status=h["self_test"],
+        udma_crc_error_count=h["udma_crc"],
+        raw_read_error_rate=h["raw_read"],
+        spin_retry_count=h["spin_retry"],
+        power_off_retract_count=h["power_off_retract"],
+        load_cycle_count=h["load_cycle"],
+        helium_level=h["helium"],
     )

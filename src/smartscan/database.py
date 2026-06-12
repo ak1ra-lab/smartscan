@@ -19,8 +19,9 @@ def _run_migrations(conn: sqlite3.Connection) -> None:
     for sql in DB_MIGRATIONS:
         try:
             conn.execute(sql)
-        except sqlite3.OperationalError:
-            pass  # column already exists
+        except sqlite3.OperationalError as exc:
+            if "duplicate column" not in str(exc):
+                logging.warning("Migration failed: %s", exc)
 
 
 def init_db(db_path: str) -> sqlite3.Connection:
