@@ -67,7 +67,7 @@ def _build_parser(config: SmartScanConfig | None = None) -> argparse.ArgumentPar
     collect_parser.add_argument(
         "--no-save",
         action="store_true",
-        default=cfg.no_save,
+        default=cfg.collect.no_save,
         help="Skip saving SMART data to database",
     )
     collect_parser.add_argument(
@@ -102,6 +102,12 @@ def _build_parser(config: SmartScanConfig | None = None) -> argparse.ArgumentPar
         help="End date (YYYY-MM-DD) for query",
     )
     query_parser.add_argument(
+        "--last-days",
+        type=int,
+        metavar="N",
+        help="Show records from the last N days (overrides --since)",
+    )
+    query_parser.add_argument(
         "--verbose",
         "-v",
         action="store_true",
@@ -123,7 +129,18 @@ def _build_parser(config: SmartScanConfig | None = None) -> argparse.ArgumentPar
         dest="identify_source",
         action="append",
         choices=["by-id", "by-path", "by-diskseq"],
-        help="Restrict to specific /dev/disk/ source directories (may be repeated; default: all)",
+        default=None,
+        help="Restrict to specific /dev/disk/ source directories "
+        "(appended to identify.source config; may be repeated; default: all)",
+    )
+    identify_parser.add_argument(
+        "--exclude",
+        dest="identify_exclude",
+        action="append",
+        metavar="PATTERN",
+        default=None,
+        help="Additional regex patterns to exclude resolved device paths "
+        "(appended to identify.exclude_patterns config; may be repeated)",
     )
 
     argcomplete.autocomplete(parser)
@@ -147,6 +164,9 @@ def main() -> None:
         args.thresholds_enabled = config.thresholds.enabled
         args.threshold_rules = config.thresholds
         args.llm_config = config.llm
+        args.collect_config = config.collect
+        args.query_config = config.query
+        args.identify_config = config.identify
 
         if args.command == "query":
             do_query(args)

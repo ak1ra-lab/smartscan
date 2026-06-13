@@ -26,16 +26,23 @@ from .thresholds import check_thresholds
 
 
 def do_identify(args: Namespace) -> None:
-    sources = args.identify_source
-    if sources is None:
-        from .smartctl import _SOURCE_DIRS
+    from .smartctl import _SOURCE_DIRS
 
-        sources = _SOURCE_DIRS
-    else:
-        sources = tuple(sources)
+    config_cfg = args.identify_config
+
+    sources_list = list(config_cfg.source or _SOURCE_DIRS)
+    if args.identify_source:
+        sources_list.extend(args.identify_source)
+    sources = tuple(sources_list)
+
+    exclude_list = list(config_cfg.exclude_patterns)
+    if args.identify_exclude:
+        exclude_list.extend(args.identify_exclude)
 
     try:
-        devices = build_device_tree(args.pattern, sources=sources)
+        devices = build_device_tree(
+            args.pattern, sources=sources, exclude_patterns=exclude_list or None
+        )
     except DiskNotFoundError as exc:
         logging.error("%s", exc)
         sys.exit(1)
@@ -119,8 +126,23 @@ def do_collect(args: Namespace) -> None:
 def do_query(args: Namespace) -> None:
     from .database import parse_date
 
-    since = parse_date(args.since) if args.since else None
-    until = parse_date(args.until) if args.until else None
+    last_days = args.last_days
+    if last_days is None:
+        last_days = args.query_config.last_days
+
+    if last_days:
+        from datetime import datetime, timedelta, timezone
+
+        since_str = (datetime.now(timezone.utc) - timedelta(days=last_days)).strftime(
+            "%Y-%m-%d"
+        )
+    else:
+        since_str = args.since or args.query_config.since
+
+    until_str = args.until or args.query_config.until
+
+    since = parse_date(since_str) if since_str else None
+    until = parse_date(until_str) if until_str else None
 
     conn = open_db(args.db_path)
     if conn is None:

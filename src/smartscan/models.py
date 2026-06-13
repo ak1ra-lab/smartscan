@@ -63,10 +63,27 @@ class LLMConfig(BaseModel):
     system_prompt: str = DEFAULT_SYSTEM_PROMPT
 
 
+class CollectConfig(BaseModel):
+    no_save: bool = False
+
+
+class QueryConfig(BaseModel):
+    since: str | None = None
+    until: str | None = None
+    last_days: int | None = None
+
+
+class IdentifyConfig(BaseModel):
+    source: list[str] = Field(default_factory=list)
+    exclude_patterns: list[str] = Field(default_factory=list)
+
+
 class SmartScanConfig(BaseModel):
     format: Literal["table", "json"] = "table"
-    no_save: bool = False
     db_path: str = DEFAULT_DB_PATH
     log_file: str = DEFAULT_LOG_FILE
+    collect: CollectConfig = Field(default_factory=CollectConfig)
+    query: QueryConfig = Field(default_factory=QueryConfig)
+    identify: IdentifyConfig = Field(default_factory=IdentifyConfig)
     thresholds: ThresholdRules = Field(default_factory=ThresholdRules)
     llm: LLMConfig = Field(default_factory=LLMConfig)

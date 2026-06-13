@@ -127,3 +127,36 @@ def test_identify_with_pattern_and_source() -> None:
     assert args.command == "identify"
     assert args.pattern == "Samsung"
     assert args.identify_source == ["by-diskseq"]
+
+
+def test_identify_with_exclude() -> None:
+    parser = create_parser()
+    args = parser.parse_args(["identify", "--exclude", "^/dev/loop"])
+    assert args.command == "identify"
+    assert args.identify_exclude == ["^/dev/loop"]
+
+
+def test_identify_with_multiple_excludes() -> None:
+    parser = create_parser()
+    args = parser.parse_args(
+        ["identify", "--exclude", "^/dev/loop", "--exclude", "^/dev/zd"]
+    )
+    assert args.identify_exclude == ["^/dev/loop", "^/dev/zd"]
+
+
+def test_identify_with_exclude_and_source() -> None:
+    parser = create_parser()
+    args = parser.parse_args(
+        ["identify", "--source", "by-id", "--exclude", "^/dev/loop", "nvme"]
+    )
+    assert args.command == "identify"
+    assert args.pattern == "nvme"
+    assert args.identify_source == ["by-id"]
+    assert args.identify_exclude == ["^/dev/loop"]
+
+
+def test_query_with_last_days() -> None:
+    parser = create_parser()
+    args = parser.parse_args(["query", "--last-days", "7"])
+    assert args.command == "query"
+    assert args.last_days == 7

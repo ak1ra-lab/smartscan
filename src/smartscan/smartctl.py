@@ -343,6 +343,7 @@ def _get_disk_info(dev_path: str) -> tuple[str, str, int]:
 def build_device_tree(
     pattern: str = ".*",
     sources: tuple[str, ...] = _SOURCE_DIRS,
+    exclude_patterns: list[str] | None = None,
 ) -> list[dict[str, object]]:
     """Scan ``/dev/disk/<source>/`` directories and map block devices to their identifiers.
 
@@ -371,6 +372,16 @@ def build_device_tree(
     except re.error as exc:
         raise DiskNotFoundError(f"Invalid regex pattern: {exc}") from exc
 
+    exclude_compiled: list[re.Pattern[str]] = []
+    if exclude_patterns:
+        for ep in exclude_patterns:
+            try:
+                exclude_compiled.append(re.compile(ep))
+            except re.error as exc:
+                raise DiskNotFoundError(
+                    f"Invalid exclude regex pattern: {exc}"
+                ) from exc
+
     _part_re = re.compile(r"-part\d+$")
     seen_devices: dict[str, dict[str, list[str]]] = {}
     available_sources: list[str] = []
@@ -389,6 +400,8 @@ def build_device_tree(
             if not compiled.search(name):
                 continue
             target = str(entry.resolve())
+            if exclude_compiled and any(exc.search(target) for exc in exclude_compiled):
+                continue
             if not _is_whole_disk(target):
                 continue
             full_path = str(entry)

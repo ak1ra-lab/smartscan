@@ -34,6 +34,7 @@ Map disks to their /dev/disk/ identifiers (no root needed):
 ```bash
 smartscan identify
 smartscan identify --source by-id "Samsung"
+smartscan identify --exclude '^/dev/(loop|zd)\d+'
 ```
 
 Read the [full documentation](https://ak1ra-lab.github.io/smartscan/) for shell completion, configuration reference, and advanced usage.

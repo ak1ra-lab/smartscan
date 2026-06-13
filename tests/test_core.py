@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from unittest.mock import patch
+
 import pytest
 from conftest import make_fields
 
@@ -452,3 +454,74 @@ class TestDatabase:
         assert rows[0]["disk_name"] == "ata-WDC"
 
         conn.close()
+
+
+class TestBuildDeviceTree:
+    def test_exclude_patterns_filters_devices(self) -> None:
+        from smartscan.smartctl import build_device_tree
+
+        class FakeEntry:
+            def __init__(self, name: str, target: str, is_symlink: bool = True) -> None:
+                self._name = name
+                self._target = target
+                self._is_symlink = is_symlink
+
+            def is_symlink(self) -> bool:
+                return self._is_symlink  # type: ignore[attr-defined]
+
+            @property
+            def name(self) -> str:
+                return self._name
+
+            def resolve(self) -> "FakePath":
+                return FakePath(self._target)
+
+            def __lt__(self, other: "FakeEntry") -> bool:
+                return self._name < other._name
+
+        class FakePath:
+            def __init__(self, p: str) -> None:
+                self._p = p
+
+            def __truediv__(self, other: str) -> "FakePath":
+                return FakePath(f"{self._p}/{other}")
+
+            def is_dir(self) -> bool:
+                return self._p in ("/dev/disk", "/dev/disk/by-diskseq")
+
+            def iterdir(self) -> list:
+                return entries
+
+            def __str__(self) -> str:
+                return self._p
+
+        entries = [
+            FakeEntry("ata-Samsung_SSD", "/dev/sda"),
+            FakeEntry("1", "/dev/loop0"),
+            FakeEntry("zd16", "/dev/zd16"),
+        ]
+
+        def _mock_is_whole_disk(dev_path: str) -> bool:
+            return True
+
+        def _mock_get_disk_info(dev_path: str) -> tuple:
+            return "TestModel", "1.0 TiB", 1099511627776
+
+        with (
+            patch("smartscan.smartctl.Path", FakePath),
+            patch(
+                "smartscan.smartctl._is_whole_disk",
+                side_effect=_mock_is_whole_disk,
+            ),
+            patch(
+                "smartscan.smartctl._get_disk_info",
+                side_effect=_mock_get_disk_info,
+            ),
+        ):
+            result = build_device_tree(
+                sources=("by-diskseq",),
+                exclude_patterns=["^/dev/(loop|zd)\\d+"],
+            )
+
+        assert len(result) == 1
+        assert result[0]["device"] == "/dev/sda"
