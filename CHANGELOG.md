@@ -56,6 +56,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Threshold checks now also run in `query` mode for historical alert display
 - Database migration errors are now logged with a warning instead of being silently swallowed, except for expected "duplicate column" cases
 - Docker image now installs `smartmontools` so the `smartctl` binary is available at run time
-
-[0.2.0]: https://github.com/ak1ra-lab/smartscan/tag/?h=v0.2.0
-[0.1.0]: https://github.com/ak1ra-lab/smartscan/tag/?h=v0.1.0
