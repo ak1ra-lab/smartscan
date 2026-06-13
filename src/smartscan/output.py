@@ -11,6 +11,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
+from rich.tree import Tree
 
 from .models import SmartInfo
 
@@ -169,6 +170,41 @@ def print_llm_analysis(text: str) -> None:
     )
     console.print(panel)
     console.print()
+
+
+def print_identify_tree(devices: list[dict[str, object]]) -> None:
+    """Render disk identifier trees as a Rich-styled tree."""
+    for dev in devices:
+        label = str(dev["device"])
+        extras = []
+        model = dev.get("model", "N/A")
+        if model != "N/A":
+            extras.append(str(model))
+        size_human = dev.get("size_human", "N/A")
+        if size_human != "N/A":
+            extras.append(str(size_human))
+        if extras:
+            label += f"  [{', '.join(extras)}]"
+
+        tree = Tree(label, guide_style="dim")
+        sources = dev.get("sources", {})
+        if isinstance(sources, dict):
+            for source, paths in sources.items():
+                if not isinstance(paths, list) or not paths:
+                    continue
+                branch = tree.add(f"[bold cyan]{source}[/bold cyan]")
+                for p in paths:
+                    branch.add(str(p))
+        console.print(tree)
+        console.print()
+
+
+def print_identify_json(devices: list[dict[str, object]]) -> None:
+    """Emit disk identifier trees as JSON lines to stdout."""
+    for dev in devices:
+        json.dump(dev, sys.stdout, ensure_ascii=False, default=str)
+        sys.stdout.write("\n")
+        sys.stdout.flush()
 
 
 def row_to_fields(row: sqlite3.Row) -> SmartInfo:

@@ -13,6 +13,18 @@ from .constants import SMARTCTL_ERROR_MSGS
 from .exceptions import DiskNotFoundError, SmartctlError
 from .models import SmartInfo
 
+_SYS_BLOCK = Path("/sys/class/block")
+_PARTITION_NAME_RE = re.compile(
+    r"^(?:sd[a-z]+\d+|hd[a-z]+\d+|vd[a-z]+\d+|xvd[a-z]+\d+"
+    r"|nvme\d+n\d+p\d+"
+    r"|mmcblk\d+p\d+"
+    r"|loop\d+p\d+)"
+    r"$"
+)
+
+
+_SOURCE_DIRS = ("by-id", "by-path", "by-diskseq")
+
 
 def safe_get(data: dict[str, Any] | Any, *keys: str, default: Any = "N/A") -> Any:
     """Safely traverse nested dicts returning a default for missing or empty values."""
@@ -282,3 +294,125 @@ def extract_fields(data: dict[str, Any]) -> SmartInfo:
         load_cycle_count=h["load_cycle"],
         helium_level=h["helium"],
     )
+
+
+def _is_whole_disk(dev_path: str | Path) -> bool:
+    name = Path(dev_path).name
+    part_file = _SYS_BLOCK / name / "partition"
+    try:
+        return part_file.read_text().strip() == "0"
+    except (OSError, FileNotFoundError):
+        return not bool(_PARTITION_NAME_RE.match(name))
+
+
+def _format_size(size_bytes: int) -> str:
+    if size_bytes <= 0:
+        return "N/A"
+    units = ("B", "KiB", "MiB", "GiB", "TiB", "PiB")
+    value = float(size_bytes)
+    for unit in units:
+        if abs(value) < 1024.0:
+            return f"{value:.1f} {unit}" if unit != "B" else f"{int(value)} B"
+        value /= 1024.0
+    return f"{value:.1f} PiB"
+
+
+def _get_disk_info(dev_path: str) -> tuple[str, str, int]:
+    name = Path(dev_path).name
+    sys_dir = _SYS_BLOCK / name
+
+    model = "N/A"
+    model_file = sys_dir / "device" / "model"
+    try:
+        model = model_file.read_text().strip()
+    except (OSError, FileNotFoundError):
+        pass
+
+    size_bytes = 0
+    size_file = sys_dir / "size"
+    try:
+        sectors = int(size_file.read_text().strip())
+        size_bytes = sectors * 512
+    except (OSError, FileNotFoundError, ValueError):
+        pass
+
+    size_human = _format_size(size_bytes)
+    return model, size_human, size_bytes
+
+
+def build_device_tree(
+    pattern: str = ".*",
+    sources: tuple[str, ...] = _SOURCE_DIRS,
+) -> list[dict[str, object]]:
+    """Scan ``/dev/disk/<source>/`` directories and map block devices to their identifiers.
+
+    Each returned entry is a dict with keys:
+
+    - ``device``: resolved block device path (e.g. ``/dev/sda``)
+    - ``model``: model name from sysfs (or ``"N/A"``)
+    - ``size_human``: human-readable size (e.g. ``"3.6 TiB"``)
+    - ``size_bytes``: size in bytes
+    - ``sources``: dict mapping source name (e.g. ``"by-id"``) to a sorted
+      list of **full** symlink paths
+
+    Partition entries and sources with no matching identifiers are excluded
+    from the result.  Entries are sorted by device path.
+
+    Raises:
+        DiskNotFoundError: If the disk parent directory is missing, the regex
+            is invalid, or no matching identifiers are found.
+    """
+    disk_dir = Path("/dev/disk")
+    if not disk_dir.is_dir():
+        raise DiskNotFoundError(f"Directory not found: {disk_dir}")
+
+    try:
+        compiled = re.compile(pattern)
+    except re.error as exc:
+        raise DiskNotFoundError(f"Invalid regex pattern: {exc}") from exc
+
+    _part_re = re.compile(r"-part\d+$")
+    seen_devices: dict[str, dict[str, list[str]]] = {}
+    available_sources: list[str] = []
+
+    for source in sources:
+        source_dir = disk_dir / source
+        if not source_dir.is_dir():
+            continue
+        available_sources.append(source)
+        for entry in sorted(source_dir.iterdir()):
+            if not entry.is_symlink():
+                continue
+            name = entry.name
+            if _part_re.search(name):
+                continue
+            if not compiled.search(name):
+                continue
+            target = str(entry.resolve())
+            if not _is_whole_disk(target):
+                continue
+            full_path = str(entry)
+            seen_devices.setdefault(target, {}).setdefault(source, []).append(full_path)
+
+    if not seen_devices:
+        detail = ""
+        if not available_sources:
+            detail = f" (no /dev/disk/ source directories found; checked: {', '.join(sources)})"
+        raise DiskNotFoundError(
+            f"No disk identifiers found matching pattern: {pattern}{detail}"
+        )
+
+    result: list[dict[str, object]] = []
+    for device in sorted(seen_devices):
+        model, size_human, size_bytes = _get_disk_info(device)
+        result.append(
+            {
+                "device": device,
+                "model": model,
+                "size_human": size_human,
+                "size_bytes": size_bytes,
+                "sources": seen_devices[device],
+            }
+        )
+
+    return result

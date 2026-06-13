@@ -13,14 +13,37 @@ from .database import init_db, open_db, query_smart_info, save_to_db
 from .exceptions import DiskNotFoundError
 from .llm import call_llm
 from .output import (
+    print_identify_json,
+    print_identify_tree,
     print_json_output,
     print_llm_analysis,
     print_query_table,
     print_table,
     row_to_fields,
 )
-from .smartctl import extract_fields, find_disks, run_smartctl
+from .smartctl import build_device_tree, extract_fields, find_disks, run_smartctl
 from .thresholds import check_thresholds
+
+
+def do_identify(args: Namespace) -> None:
+    sources = args.identify_source
+    if sources is None:
+        from .smartctl import _SOURCE_DIRS
+
+        sources = _SOURCE_DIRS
+    else:
+        sources = tuple(sources)
+
+    try:
+        devices = build_device_tree(args.pattern, sources=sources)
+    except DiskNotFoundError as exc:
+        logging.error("%s", exc)
+        sys.exit(1)
+
+    if args.json:
+        print_identify_json(devices)
+    else:
+        print_identify_tree(devices)
 
 
 def do_collect(args: Namespace) -> None:

@@ -83,3 +83,47 @@ def test_shared_global_args() -> None:
     args = parser.parse_args(["--db-path", "/tmp/test.db", "collect"])
     assert args.command == "collect"
     assert args.db_path == "/tmp/test.db"
+
+
+def test_identify_basic() -> None:
+    parser = create_parser()
+    args = parser.parse_args(["identify"])
+    assert args.command == "identify"
+    assert args.pattern == ".*"
+    assert args.identify_source is None
+
+
+def test_identify_with_pattern() -> None:
+    parser = create_parser()
+    args = parser.parse_args(["identify", "WDC"])
+    assert args.command == "identify"
+    assert args.pattern == "WDC"
+
+
+def test_identify_with_source() -> None:
+    parser = create_parser()
+    args = parser.parse_args(["identify", "--source", "by-id"])
+    assert args.command == "identify"
+    assert args.identify_source == ["by-id"]
+
+
+def test_identify_with_multiple_sources() -> None:
+    parser = create_parser()
+    args = parser.parse_args(["identify", "--source", "by-id", "--source", "by-path"])
+    assert args.command == "identify"
+    assert args.identify_source == ["by-id", "by-path"]
+
+
+def test_identify_with_json() -> None:
+    parser = create_parser()
+    args = parser.parse_args(["--json", "identify"])
+    assert args.command == "identify"
+    assert args.json is True
+
+
+def test_identify_with_pattern_and_source() -> None:
+    parser = create_parser()
+    args = parser.parse_args(["identify", "--source", "by-diskseq", "Samsung"])
+    assert args.command == "identify"
+    assert args.pattern == "Samsung"
+    assert args.identify_source == ["by-diskseq"]

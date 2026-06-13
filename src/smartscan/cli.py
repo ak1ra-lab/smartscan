@@ -10,7 +10,7 @@ import sys
 
 import argcomplete
 
-from .commands import do_collect, do_query
+from .commands import do_collect, do_identify, do_query
 from .config import load_config
 from .constants import DEFAULT_CONFIG_PATH, DEFAULT_DB_PATH, DEFAULT_LOG_FILE
 from .exceptions import SmartScanError
@@ -108,6 +108,24 @@ def _build_parser(config: SmartScanConfig | None = None) -> argparse.ArgumentPar
         help="Show extended fields in terminal output",
     )
 
+    identify_parser = sub.add_parser(
+        "identify",
+        help="Map disk devices to their /dev/disk identifiers",
+    )
+    identify_parser.add_argument(
+        "pattern",
+        nargs="?",
+        default=".*",
+        help="Regex pattern to filter identifier names",
+    )
+    identify_parser.add_argument(
+        "--source",
+        dest="identify_source",
+        action="append",
+        choices=["by-id", "by-path", "by-diskseq"],
+        help="Restrict to specific /dev/disk/ source directories (may be repeated; default: all)",
+    )
+
     argcomplete.autocomplete(parser)
     return parser
 
@@ -132,6 +150,8 @@ def main() -> None:
 
         if args.command == "query":
             do_query(args)
+        elif args.command == "identify":
+            do_identify(args)
         else:
             do_collect(args)
     except SmartScanError as exc:
