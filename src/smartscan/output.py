@@ -158,7 +158,7 @@ def print_llm_analysis(text: str) -> None:
     console.print()
 
 
-def print_identify_tree(devices: list[dict[str, object]]) -> None:
+def print_lsblk_tree(devices: list[dict[str, object]]) -> None:
     """Render disk identifier trees as a Rich-styled tree."""
     for dev in devices:
         label = str(dev["device"])
@@ -185,7 +185,7 @@ def print_identify_tree(devices: list[dict[str, object]]) -> None:
         console.print()
 
 
-def print_identify_json(devices: list[dict[str, object]]) -> None:
+def print_lsblk_json(devices: list[dict[str, object]]) -> None:
     """Emit disk identifier trees as JSON lines to stdout."""
     for dev in devices:
         json.dump(dev, sys.stdout, ensure_ascii=False, default=str)

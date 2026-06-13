@@ -6,7 +6,7 @@ A CLI tool that runs `smartctl` on all disks, extracts key SMART health metrics,
 
 - Collects SMART data via `smartctl --all --json` from `/dev/disk/by-id/ata-*` and `/dev/disk/by-id/nvme-*`.
 - Displays results as Rich-styled tables with warnings for critical values.
-- Maps disk devices to their `/dev/disk/` identifiers (by-id, by-path, by-diskseq) with a Rich tree view (`identify` subcommand).
+- Maps disk devices to their `/dev/disk/` identifiers (by-id, by-path, by-diskseq) with a Rich tree view (`lsblk` subcommand).
 - Stores historical data in SQLite for trend analysis (`query` subcommand).
 - Supports JSON lines output for scripting.
 - Configurable via TOML config file with Pydantic validation.
@@ -57,14 +57,14 @@ smartscan --json collect
 smartscan --json query --since 2024-01-01
 ```
 
-`smartscan identify` maps block devices to their identifiers under `/dev/disk/`. It does not require root:
+`smartscan lsblk` maps block devices to their identifiers under `/dev/disk/`. It does not require root:
 
 ```shell
-smartscan identify
-smartscan identify "Samsung"
-smartscan identify --source by-id
-smartscan identify --source by-id --source by-diskseq
-smartscan --json identify
+smartscan lsblk
+smartscan lsblk "Samsung"
+smartscan lsblk --source by-id
+smartscan lsblk --source by-id --source by-diskseq
+smartscan --json lsblk
 ```
 
 Output example:

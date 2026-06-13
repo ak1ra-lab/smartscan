@@ -85,74 +85,74 @@ def test_shared_global_args() -> None:
     assert args.db_path == "/tmp/test.db"
 
 
-def test_identify_basic() -> None:
+def test_lsblk_basic() -> None:
     parser = create_parser()
-    args = parser.parse_args(["identify"])
-    assert args.command == "identify"
+    args = parser.parse_args(["lsblk"])
+    assert args.command == "lsblk"
     assert args.pattern == ".*"
-    assert args.identify_source is None
+    assert args.lsblk_source is None
 
 
-def test_identify_with_pattern() -> None:
+def test_lsblk_with_pattern() -> None:
     parser = create_parser()
-    args = parser.parse_args(["identify", "WDC"])
-    assert args.command == "identify"
+    args = parser.parse_args(["lsblk", "WDC"])
+    assert args.command == "lsblk"
     assert args.pattern == "WDC"
 
 
-def test_identify_with_source() -> None:
+def test_lsblk_with_source() -> None:
     parser = create_parser()
-    args = parser.parse_args(["identify", "--source", "by-id"])
-    assert args.command == "identify"
-    assert args.identify_source == ["by-id"]
+    args = parser.parse_args(["lsblk", "--source", "by-id"])
+    assert args.command == "lsblk"
+    assert args.lsblk_source == ["by-id"]
 
 
-def test_identify_with_multiple_sources() -> None:
+def test_lsblk_with_multiple_sources() -> None:
     parser = create_parser()
-    args = parser.parse_args(["identify", "--source", "by-id", "--source", "by-path"])
-    assert args.command == "identify"
-    assert args.identify_source == ["by-id", "by-path"]
+    args = parser.parse_args(["lsblk", "--source", "by-id", "--source", "by-path"])
+    assert args.command == "lsblk"
+    assert args.lsblk_source == ["by-id", "by-path"]
 
 
-def test_identify_with_json() -> None:
+def test_lsblk_with_json() -> None:
     parser = create_parser()
-    args = parser.parse_args(["--json", "identify"])
-    assert args.command == "identify"
+    args = parser.parse_args(["--json", "lsblk"])
+    assert args.command == "lsblk"
     assert args.json is True
 
 
-def test_identify_with_pattern_and_source() -> None:
+def test_lsblk_with_pattern_and_source() -> None:
     parser = create_parser()
-    args = parser.parse_args(["identify", "--source", "by-diskseq", "Samsung"])
-    assert args.command == "identify"
+    args = parser.parse_args(["lsblk", "--source", "by-diskseq", "Samsung"])
+    assert args.command == "lsblk"
     assert args.pattern == "Samsung"
-    assert args.identify_source == ["by-diskseq"]
+    assert args.lsblk_source == ["by-diskseq"]
 
 
-def test_identify_with_exclude() -> None:
+def test_lsblk_with_exclude() -> None:
     parser = create_parser()
-    args = parser.parse_args(["identify", "--exclude", "^/dev/loop"])
-    assert args.command == "identify"
-    assert args.identify_exclude == ["^/dev/loop"]
+    args = parser.parse_args(["lsblk", "--exclude", "^/dev/loop"])
+    assert args.command == "lsblk"
+    assert args.lsblk_exclude == ["^/dev/loop"]
 
 
-def test_identify_with_multiple_excludes() -> None:
-    parser = create_parser()
-    args = parser.parse_args(
-        ["identify", "--exclude", "^/dev/loop", "--exclude", "^/dev/zd"]
-    )
-    assert args.identify_exclude == ["^/dev/loop", "^/dev/zd"]
-
-
-def test_identify_with_exclude_and_source() -> None:
+def test_lsblk_with_multiple_excludes() -> None:
     parser = create_parser()
     args = parser.parse_args(
-        ["identify", "--source", "by-id", "--exclude", "^/dev/loop", "nvme"]
+        ["lsblk", "--exclude", "^/dev/loop", "--exclude", "^/dev/zd"]
     )
-    assert args.command == "identify"
+    assert args.lsblk_exclude == ["^/dev/loop", "^/dev/zd"]
+
+
+def test_lsblk_with_exclude_and_source() -> None:
+    parser = create_parser()
+    args = parser.parse_args(
+        ["lsblk", "--source", "by-id", "--exclude", "^/dev/loop", "nvme"]
+    )
+    assert args.command == "lsblk"
     assert args.pattern == "nvme"
-    assert args.identify_source == ["by-id"]
-    assert args.identify_exclude == ["^/dev/loop"]
+    assert args.lsblk_source == ["by-id"]
+    assert args.lsblk_exclude == ["^/dev/loop"]
 
 
 def test_query_with_last_days() -> None:

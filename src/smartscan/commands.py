@@ -14,10 +14,10 @@ from .database import init_db, open_db, query_smart_info, save_to_db
 from .exceptions import DiskNotFoundError
 from .llm import call_llm
 from .output import (
-    print_identify_json,
-    print_identify_tree,
     print_json_output,
     print_llm_analysis,
+    print_lsblk_json,
+    print_lsblk_tree,
     print_query_table,
     print_table,
     row_to_fields,
@@ -78,19 +78,19 @@ def _collect_one_disk(
     return rc
 
 
-def do_identify(args: Namespace) -> None:
+def do_lsblk(args: Namespace) -> None:
     from .smartctl import _SOURCE_DIRS
 
-    config_cfg = args.identify_config
+    config_cfg = args.lsblk_config
 
     sources_list = list(config_cfg.source or _SOURCE_DIRS)
-    if args.identify_source:
-        sources_list.extend(args.identify_source)
+    if args.lsblk_source:
+        sources_list.extend(args.lsblk_source)
     sources = tuple(sources_list)
 
     exclude_list = list(config_cfg.exclude_patterns)
-    if args.identify_exclude:
-        exclude_list.extend(args.identify_exclude)
+    if args.lsblk_exclude:
+        exclude_list.extend(args.lsblk_exclude)
 
     try:
         devices = build_device_tree(
@@ -101,9 +101,9 @@ def do_identify(args: Namespace) -> None:
         sys.exit(1)
 
     if args.json:
-        print_identify_json(devices)
+        print_lsblk_json(devices)
     else:
-        print_identify_tree(devices)
+        print_lsblk_tree(devices)
 
 
 def do_collect(args: Namespace) -> None:

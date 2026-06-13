@@ -73,7 +73,7 @@ class QueryConfig(BaseModel):
     last_days: int | None = None
 
 
-class IdentifyConfig(BaseModel):
+class LsblkConfig(BaseModel):
     source: list[str] = Field(default_factory=list)
     exclude_patterns: list[str] = Field(default_factory=list)
 
@@ -84,6 +84,6 @@ class SmartScanConfig(BaseModel):
     log_file: str = DEFAULT_LOG_FILE
     collect: CollectConfig = Field(default_factory=CollectConfig)
     query: QueryConfig = Field(default_factory=QueryConfig)
-    identify: IdentifyConfig = Field(default_factory=IdentifyConfig)
+    lsblk: LsblkConfig = Field(default_factory=LsblkConfig)
     thresholds: ThresholdRules = Field(default_factory=ThresholdRules)
     llm: LLMConfig = Field(default_factory=LLMConfig)

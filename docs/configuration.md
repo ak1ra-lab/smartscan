@@ -29,8 +29,8 @@ no_save = false
 # Show only records from the last N days (overrides `since`)
 # last_days = 7
 
-# ── identify ────────────────────────────────────────────────────
-[identify]
+# ── lsblk ────────────────────────────────────────────────────
+[lsblk]
 # Restrict to specific /dev/disk/ source directories
 # (by-id, by-path, by-diskseq; default: all when empty)
 # source = ["by-id", "by-path"]

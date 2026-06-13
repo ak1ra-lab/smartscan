@@ -32,9 +32,9 @@ smartscan query --since 2026-01-01
 Map disks to their /dev/disk/ identifiers (no root needed):
 
 ```bash
-smartscan identify
-smartscan identify --source by-id "Samsung"
-smartscan identify --exclude '^/dev/(loop|zd)\d+'
+smartscan lsblk
+smartscan lsblk --source by-id "Samsung"
+smartscan lsblk --exclude '^/dev/(loop|zd)\d+'
 ```
 
 Read the [full documentation](https://ak1ra-lab.github.io/smartscan/) for shell completion, configuration reference, and advanced usage.

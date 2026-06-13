@@ -10,7 +10,7 @@ import sys
 
 import argcomplete
 
-from .commands import do_collect, do_identify, do_query
+from .commands import do_collect, do_lsblk, do_query
 from .config import load_config
 from .constants import DEFAULT_CONFIG_PATH, DEFAULT_DB_PATH, DEFAULT_LOG_FILE
 from .exceptions import SmartScanError
@@ -114,33 +114,33 @@ def _build_parser(config: SmartScanConfig | None = None) -> argparse.ArgumentPar
         help="Show extended fields in terminal output",
     )
 
-    identify_parser = sub.add_parser(
-        "identify",
+    lsblk_parser = sub.add_parser(
+        "lsblk",
         help="Map disk devices to their /dev/disk identifiers",
     )
-    identify_parser.add_argument(
+    lsblk_parser.add_argument(
         "pattern",
         nargs="?",
         default=".*",
         help="Regex pattern to filter identifier names",
     )
-    identify_parser.add_argument(
+    lsblk_parser.add_argument(
         "--source",
-        dest="identify_source",
+        dest="lsblk_source",
         action="append",
         choices=["by-id", "by-path", "by-diskseq"],
         default=None,
         help="Restrict to specific /dev/disk/ source directories "
-        "(appended to identify.source config; may be repeated; default: all)",
+        "(appended to lsblk.source config; may be repeated; default: all)",
     )
-    identify_parser.add_argument(
+    lsblk_parser.add_argument(
         "--exclude",
-        dest="identify_exclude",
+        dest="lsblk_exclude",
         action="append",
         metavar="PATTERN",
         default=None,
         help="Additional regex patterns to exclude resolved device paths "
-        "(appended to identify.exclude_patterns config; may be repeated)",
+        "(appended to lsblk.exclude_patterns config; may be repeated)",
     )
 
     argcomplete.autocomplete(parser)
@@ -166,12 +166,12 @@ def main() -> None:
         args.llm_config = config.llm
         args.collect_config = config.collect
         args.query_config = config.query
-        args.identify_config = config.identify
+        args.lsblk_config = config.lsblk
 
         if args.command == "query":
             do_query(args)
-        elif args.command == "identify":
-            do_identify(args)
+        elif args.command == "lsblk":
+            do_lsblk(args)
         else:
             do_collect(args)
     except SmartScanError as exc:
