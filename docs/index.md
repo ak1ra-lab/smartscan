@@ -103,10 +103,10 @@ api_key = ""
 model = "gpt-4o-mini"
 
 # Maximum tokens in the model response (output limit, not input)
-max_tokens = 500
+max_tokens = 4096
 
 # HTTP request timeout in seconds
-timeout = 30
+timeout = 120
 
 # Controls randomness: 0.0 = deterministic, higher = more creative
 temperature = 0.3

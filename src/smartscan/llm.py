@@ -76,13 +76,16 @@ def call_llm(
         "temperature": config.temperature,
     }
 
+    headers = {
+        "Content-Type": "application/json",
+    }
+    if config.api_key:
+        headers["Authorization"] = f"Bearer {config.api_key}"
+
     try:
         response = httpx2.post(
             endpoint,
-            headers={
-                "Authorization": f"Bearer {config.api_key}",
-                "Content-Type": "application/json",
-            },
+            headers=headers,
             json=body,
             timeout=config.timeout,
         )

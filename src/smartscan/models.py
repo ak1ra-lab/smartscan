@@ -55,8 +55,8 @@ class LLMConfig(BaseModel):
     endpoint: str = "https://api.openai.com/v1"
     api_key: str = ""
     model: str = "gpt-4o-mini"
-    max_tokens: int = 500
-    timeout: int = 30
+    max_tokens: int = 4096
+    timeout: int = 120
     temperature: float = 0.3
     delay: float = 0.0
     system_prompt: str = DEFAULT_SYSTEM_PROMPT
