@@ -8,6 +8,7 @@ import sqlite3
 import sys
 import time
 from argparse import Namespace
+from typing import Any
 
 from .database import init_db, open_db, query_smart_info, save_to_db
 from .exceptions import DiskNotFoundError
@@ -22,7 +23,59 @@ from .output import (
     row_to_fields,
 )
 from .smartctl import build_device_tree, extract_fields, find_disks, run_smartctl
-from .thresholds import check_thresholds
+from .thresholds import Alert, check_thresholds
+
+
+def _build_alerts_text(alerts: list[Alert]) -> str:
+    if not alerts:
+        return "  (none)"
+    return "\n".join(f"  - {a.message}" for a in alerts)
+
+
+def _collect_one_disk(
+    disk_idx: int,
+    total_disks: int,
+    symlink: Any,
+    conn: sqlite3.Connection | None,
+    args: Namespace,
+) -> int:
+    disk_name = symlink.name
+    disk_path = os.readlink(symlink)
+
+    data, rc = run_smartctl(symlink)
+    if not data:
+        return rc
+
+    fields = extract_fields(data)
+
+    alerts: list[Alert] = []
+    if args.thresholds_enabled:
+        alerts = check_thresholds(fields, args.threshold_rules)
+
+    if args.json:
+        print_json_output(disk_name, disk_path, fields, data)
+    else:
+        print_table(disk_name, fields, alerts, verbose=args.verbose)
+
+    llm_analysis = None
+    if args.force_llm or (args.llm_config.enabled and alerts):
+        alerts_text = _build_alerts_text(alerts)
+        llm_analysis = call_llm(fields, alerts_text, args.llm_config, raw_data=data)
+    if llm_analysis:
+        if not args.json:
+            print_llm_analysis(llm_analysis)
+        if args.llm_config.delay > 0 and disk_idx < total_disks - 1:
+            time.sleep(args.llm_config.delay)
+
+    if conn:
+        try:
+            save_to_db(
+                conn, disk_name, disk_path, fields, data, llm_analysis=llm_analysis
+            )
+        except sqlite3.Error as exc:
+            logging.error("Failed to save SMART data for %s: %s", disk_name, exc)
+
+    return rc
 
 
 def do_identify(args: Namespace) -> None:
@@ -72,50 +125,11 @@ def do_collect(args: Namespace) -> None:
         logging.error("%s", exc)
         sys.exit(1)
 
-    thresholds_enabled = args.thresholds_enabled
-
     exit_code = 0
     for disk_idx, symlink in enumerate(disks):
-        disk_name = symlink.name
-        disk_path = os.readlink(symlink)
-
-        data, rc = run_smartctl(symlink)
+        rc = _collect_one_disk(disk_idx, len(disks), symlink, conn, args)
         if rc != 0:
             exit_code = 1
-
-        if not data:
-            continue
-
-        fields = extract_fields(data)
-
-        alerts = []
-        if thresholds_enabled:
-            alerts = check_thresholds(fields, args.threshold_rules)
-
-        if args.json:
-            print_json_output(disk_name, disk_path, fields, data)
-        else:
-            print_table(disk_name, fields, alerts, verbose=args.verbose)
-
-        llm_analysis = None
-        if args.force_llm or (args.llm_config.enabled and alerts):
-            alerts_text = (
-                "\n".join(f"  - {a.message}" for a in alerts) if alerts else "  (none)"
-            )
-            llm_analysis = call_llm(fields, alerts_text, args.llm_config, raw_data=data)
-        if llm_analysis:
-            if not args.json:
-                print_llm_analysis(llm_analysis)
-            if args.llm_config.delay > 0 and disk_idx < len(disks) - 1:
-                time.sleep(args.llm_config.delay)
-
-        if conn:
-            try:
-                save_to_db(
-                    conn, disk_name, disk_path, fields, data, llm_analysis=llm_analysis
-                )
-            except sqlite3.Error as exc:
-                logging.error("Failed to save SMART data for %s: %s", disk_name, exc)
 
     if conn:
         conn.close()

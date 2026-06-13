@@ -10,9 +10,32 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from .constants import DB_MIGRATIONS, DB_SCHEMA
+from .constants import DB_MIGRATIONS
 from .exceptions import InvalidDateError
+from .fields import ALL_HEALTH_FIELDS, get_field
 from .models import SmartInfo
+
+
+def _build_schema() -> str:
+    col_defs = [
+        "    id INTEGER PRIMARY KEY AUTOINCREMENT",
+        "    timestamp TEXT NOT NULL",
+        "    disk_name TEXT NOT NULL",
+        "    disk_path TEXT NOT NULL",
+    ]
+    for f in ALL_HEALTH_FIELDS:
+        col_defs.append(f"    {f.db_column} {f.db_type}")
+    col_defs.append("    raw_json TEXT")
+    col_defs.append("    llm_analysis TEXT")
+    cols = ",\n".join(col_defs)
+    return (
+        f"CREATE TABLE IF NOT EXISTS smart_info (\n{cols}\n);\n"
+        "CREATE INDEX IF NOT EXISTS idx_smart_info_disk_ts\n"
+        "    ON smart_info(disk_path, timestamp);"
+    )
+
+
+DB_SCHEMA = _build_schema()
 
 
 def _run_migrations(conn: sqlite3.Connection) -> None:
@@ -105,30 +128,7 @@ _COLUMNS_INSERT = (
     "timestamp",
     "disk_name",
     "disk_path",
-    "model_family",
-    "model_name",
-    "serial_number",
-    "firmware_version",
-    "user_capacity_bytes",
-    "user_capacity_gib",
-    "rotation_rate",
-    "interface_speed",
-    "power_on_time_hours",
-    "power_cycle_count",
-    "smart_status",
-    "temperature_celsius",
-    "reallocated_sector_ct",
-    "current_pending_sector",
-    "offline_uncorrectable",
-    "reallocated_event_count",
-    "ata_smart_error_log_count",
-    "self_test_status",
-    "udma_crc_error_count",
-    "raw_read_error_rate",
-    "spin_retry_count",
-    "power_off_retract_count",
-    "load_cycle_count",
-    "helium_level",
+    *(f.db_column for f in ALL_HEALTH_FIELDS),
     "raw_json",
     "llm_analysis",
 )
@@ -152,30 +152,7 @@ def save_to_db(
             timestamp,
             disk_name,
             disk_path,
-            fields["model_family"],
-            fields["model_name"],
-            fields["serial_number"],
-            fields["firmware_version"],
-            fields["user_capacity_bytes"],
-            fields["user_capacity_gib"],
-            fields["rotation_rate"],
-            fields["interface_speed"],
-            fields["power_on_time"],
-            fields["power_cycle_count"],
-            fields["smart_status"],
-            fields["temperature"],
-            fields["reallocated_sector_ct"],
-            fields["current_pending_sector"],
-            fields["offline_uncorrectable"],
-            fields["reallocated_event_count"],
-            fields["ata_smart_error_log"],
-            fields["self_test_status"],
-            fields["udma_crc_error_count"],
-            fields["raw_read_error_rate"],
-            fields["spin_retry_count"],
-            fields["power_off_retract_count"],
-            fields["load_cycle_count"],
-            fields["helium_level"],
+            *(get_field(fields, f.key) for f in ALL_HEALTH_FIELDS),
             json.dumps(raw_data, ensure_ascii=False),
             llm_analysis,
         ),

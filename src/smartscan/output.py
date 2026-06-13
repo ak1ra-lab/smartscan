@@ -13,6 +13,7 @@ from rich.table import Table
 from rich.text import Text
 from rich.tree import Tree
 
+from .fields import CORE_FIELDS, EXTENDED_FIELDS, FieldDef, get_field
 from .models import SmartInfo
 
 FIELD_WIDTH = 24
@@ -20,38 +21,23 @@ FIELD_WIDTH = 24
 console = Console(highlight=False)
 
 
+def _format_field_value(field: FieldDef, fields: SmartInfo) -> str:
+    value = get_field(fields, field.key)
+    if field.key == "user_capacity_gib":
+        return f"{value} GiB" if value is not None else "N/A"
+    if field.format_label:
+        return field.format_label.format(value=value)
+    if isinstance(value, (str, int, float)):
+        return str(value)
+    return "N/A"
+
+
 def _build_core_rows(fields: SmartInfo) -> list[tuple[str, str]]:
-    gib = fields["user_capacity_gib"]
-    return [
-        ("model_family", fields["model_family"]),
-        ("model_name", fields["model_name"]),
-        ("smart_status", fields["smart_status"]),
-        ("user_capacity", f"{gib} GiB" if gib is not None else "N/A"),
-        ("rotation_rate", fields["rotation_rate_display"]),
-        ("power_on_time", f"{fields['power_on_time']} hours"),
-        ("temperature", f"{fields['temperature']}°C"),
-        ("reallocated_sector_ct", fields["reallocated_sector_ct"]),
-        ("current_pending_sector", fields["current_pending_sector"]),
-        ("offline_uncorrectable", fields["offline_uncorrectable"]),
-        ("ata_smart_error_log", fields["ata_smart_error_log"]),
-        ("self_test_status", fields["self_test_status"]),
-    ]
+    return [(f.label, _format_field_value(f, fields)) for f in CORE_FIELDS]
 
 
 def _build_extended_rows(fields: SmartInfo) -> list[tuple[str, str]]:
-    return [
-        ("serial_number", fields["serial_number"]),
-        ("firmware_version", fields["firmware_version"]),
-        ("interface_speed", fields["interface_speed"]),
-        ("power_cycle_count", fields["power_cycle_count"]),
-        ("reallocated_event_count", fields["reallocated_event_count"]),
-        ("udma_crc_error_count", fields["udma_crc_error_count"]),
-        ("raw_read_error_rate", fields["raw_read_error_rate"]),
-        ("spin_retry_count", fields["spin_retry_count"]),
-        ("power_off_retract_count", fields["power_off_retract_count"]),
-        ("load_cycle_count", fields["load_cycle_count"]),
-        ("helium_level", fields["helium_level"]),
-    ]
+    return [(f.label, _format_field_value(f, fields)) for f in EXTENDED_FIELDS]
 
 
 def _format_fields(
@@ -209,32 +195,47 @@ def print_identify_json(devices: list[dict[str, object]]) -> None:
 
 def row_to_fields(row: sqlite3.Row) -> SmartInfo:
     """Convert a database row into the typed :class:`SmartInfo` dict, restoring display values."""
-    rr = row["rotation_rate"] or ""
+    from .fields import ALL_HEALTH_FIELDS
+
+    raw: dict[str, Any] = {}
+    for f in ALL_HEALTH_FIELDS:
+        col_val = row[f.db_column]
+        if col_val is None and f.key == "user_capacity_gib":
+            raw[f.key] = None
+        elif col_val is None:
+            raw[f.key] = f.default
+        elif f.key == "rotation_rate":
+            raw[f.key] = col_val or "N/A"
+        else:
+            raw[f.key] = col_val
+
+    rr = raw.get("rotation_rate", "") or ""
     rr_display = f"{rr} rpm" if rr not in ("N/A", "0", "") else "SSD (no rotation)"
+
     return SmartInfo(
-        model_family=row["model_family"] or "N/A",
-        model_name=row["model_name"] or "N/A",
-        serial_number=row["serial_number"] or "N/A",
-        firmware_version=row["firmware_version"] or "N/A",
-        user_capacity_bytes=row["user_capacity_bytes"] or 0,
-        user_capacity_gib=row["user_capacity_gib"],
-        rotation_rate=rr or "N/A",
+        model_family=raw.get("model_family", "N/A"),
+        model_name=raw.get("model_name", "N/A"),
+        serial_number=raw.get("serial_number", "N/A"),
+        firmware_version=raw.get("firmware_version", "N/A"),
+        user_capacity_bytes=raw.get("user_capacity_bytes", 0),
+        user_capacity_gib=raw.get("user_capacity_gib"),
+        rotation_rate=raw.get("rotation_rate", "N/A"),
         rotation_rate_display=rr_display,
-        interface_speed=row["interface_speed"] or "N/A",
-        power_on_time=row["power_on_time_hours"] or "N/A",
-        power_cycle_count=row["power_cycle_count"] or "N/A",
-        smart_status=row["smart_status"] or "N/A",
-        temperature=row["temperature_celsius"] or "N/A",
-        reallocated_sector_ct=row["reallocated_sector_ct"] or "0",
-        current_pending_sector=row["current_pending_sector"] or "0",
-        offline_uncorrectable=row["offline_uncorrectable"] or "0",
-        reallocated_event_count=row["reallocated_event_count"] or "0",
-        ata_smart_error_log=row["ata_smart_error_log_count"] or "0",
-        self_test_status=row["self_test_status"] or "N/A",
-        udma_crc_error_count=row["udma_crc_error_count"] or "0",
-        raw_read_error_rate=row["raw_read_error_rate"] or "0",
-        spin_retry_count=row["spin_retry_count"] or "0",
-        power_off_retract_count=row["power_off_retract_count"] or "0",
-        load_cycle_count=row["load_cycle_count"] or "0",
-        helium_level=row["helium_level"] or "0",
+        interface_speed=raw.get("interface_speed", "N/A"),
+        power_on_time=raw.get("power_on_time", "N/A"),
+        power_cycle_count=raw.get("power_cycle_count", "N/A"),
+        smart_status=raw.get("smart_status", "N/A"),
+        temperature=raw.get("temperature", "N/A"),
+        reallocated_sector_ct=raw.get("reallocated_sector_ct", "0"),
+        current_pending_sector=raw.get("current_pending_sector", "0"),
+        offline_uncorrectable=raw.get("offline_uncorrectable", "0"),
+        reallocated_event_count=raw.get("reallocated_event_count", "0"),
+        ata_smart_error_log=raw.get("ata_smart_error_log", "0"),
+        self_test_status=raw.get("self_test_status", "N/A"),
+        udma_crc_error_count=raw.get("udma_crc_error_count", "0"),
+        raw_read_error_rate=raw.get("raw_read_error_rate", "0"),
+        spin_retry_count=raw.get("spin_retry_count", "0"),
+        power_off_retract_count=raw.get("power_off_retract_count", "0"),
+        load_cycle_count=raw.get("load_cycle_count", "0"),
+        helium_level=raw.get("helium_level", "0"),
     )

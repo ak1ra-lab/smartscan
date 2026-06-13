@@ -6,9 +6,8 @@ from unittest.mock import MagicMock, patch
 from conftest import make_fields
 
 from smartscan.llm import (
-    _call_anthropic,
-    _call_openai,
-    _extract_anthropic_text,
+    AnthropicProvider,
+    OpenAIProvider,
     call_llm,
 )
 from smartscan.models import LLMConfig
@@ -47,7 +46,7 @@ class TestCallOpenAI:
             mock_post.return_value = _make_mock_response(
                 {"choices": [{"message": {"content": "Drive is healthy."}}]}
             )
-            _call_openai(fields, alerts_text, config)
+            OpenAIProvider(config).call(fields, alerts_text)
 
         call_kwargs = mock_post.call_args.kwargs
         assert (
@@ -72,7 +71,7 @@ class TestCallOpenAI:
             mock_post.return_value = _make_mock_response(
                 {"choices": [{"message": {"content": "No issues detected."}}]}
             )
-            result = _call_openai(fields, alerts_text, config)
+            result = OpenAIProvider(config).call(fields, alerts_text)
 
         assert result == "No issues detected."
 
@@ -85,7 +84,7 @@ class TestCallOpenAI:
             mock_post.return_value = _make_mock_response(
                 {"choices": [{"message": {"content": "ok"}}]}
             )
-            _call_openai(fields, alerts_text, config)
+            OpenAIProvider(config).call(fields, alerts_text)
 
         assert "Authorization" not in mock_post.call_args.kwargs["headers"]
 
@@ -105,7 +104,7 @@ class TestCallOpenAI:
             )
             mock_post.return_value = mock_response
 
-            result = _call_openai(fields, alerts_text, config)
+            result = OpenAIProvider(config).call(fields, alerts_text)
 
         assert result is None
 
@@ -119,7 +118,7 @@ class TestCallOpenAI:
                 mock_post.return_value = _make_mock_response(
                     {"choices": [{"message": {"content": "ok"}}]}
                 )
-                _call_openai(fields, alerts_text, config)
+                OpenAIProvider(config).call(fields, alerts_text)
 
         assert "api_url does not appear to match" in caplog.text
 
@@ -135,7 +134,7 @@ class TestCallOpenAI:
                 mock_post.return_value = _make_mock_response(
                     {"choices": [{"message": {"content": "ok"}}]}
                 )
-                _call_openai(fields, alerts_text, config)
+                OpenAIProvider(config).call(fields, alerts_text)
 
         assert "api_url does not appear to match" in caplog.text
 
@@ -149,7 +148,7 @@ class TestCallOpenAI:
                 mock_post.return_value = _make_mock_response(
                     {"choices": [{"message": {"content": "ok"}}]}
                 )
-                _call_openai(fields, alerts_text, config)
+                OpenAIProvider(config).call(fields, alerts_text)
 
         assert "api_url does not appear to match" not in caplog.text
 
@@ -168,7 +167,7 @@ class TestCallAnthropic:
             mock_post.return_value = _make_mock_response(
                 {"content": [{"type": "text", "text": "Drive is healthy."}]}
             )
-            _call_anthropic(fields, alerts_text, config)
+            AnthropicProvider(config).call(fields, alerts_text)
 
         call_kwargs = mock_post.call_args.kwargs
         assert mock_post.call_args.args[0] == "https://api.anthropic.com/v1/messages"
@@ -195,7 +194,7 @@ class TestCallAnthropic:
             mock_post.return_value = _make_mock_response(
                 {"content": [{"type": "text", "text": "All clear."}]}
             )
-            result = _call_anthropic(fields, alerts_text, config)
+            result = AnthropicProvider(config).call(fields, alerts_text)
 
         assert result == "All clear."
 
@@ -212,7 +211,7 @@ class TestCallAnthropic:
             mock_post.return_value = _make_mock_response(
                 {"content": [{"type": "text", "text": "ok"}]}
             )
-            _call_anthropic(fields, alerts_text, config)
+            AnthropicProvider(config).call(fields, alerts_text)
 
         assert "x-api-key" not in mock_post.call_args.kwargs["headers"]
 
@@ -229,7 +228,7 @@ class TestCallAnthropic:
                 mock_post.return_value = _make_mock_response(
                     {"content": [{"type": "text", "text": "ok"}]}
                 )
-                _call_anthropic(fields, alerts_text, config)
+                AnthropicProvider(config).call(fields, alerts_text)
 
         assert "api_url does not appear to match" in caplog.text
 
@@ -246,7 +245,7 @@ class TestCallAnthropic:
                 mock_post.return_value = _make_mock_response(
                     {"content": [{"type": "text", "text": "ok"}]}
                 )
-                _call_anthropic(fields, alerts_text, config)
+                AnthropicProvider(config).call(fields, alerts_text)
 
         assert "api_url does not appear to match" in caplog.text
 
@@ -263,7 +262,7 @@ class TestCallAnthropic:
                 mock_post.return_value = _make_mock_response(
                     {"content": [{"type": "text", "text": "ok"}]}
                 )
-                _call_anthropic(fields, alerts_text, config)
+                AnthropicProvider(config).call(fields, alerts_text)
 
         assert "api_url does not appear to match" not in caplog.text
 
@@ -286,7 +285,7 @@ class TestCallAnthropic:
             )
             mock_post.return_value = mock_response
 
-            result = _call_anthropic(fields, alerts_text, config)
+            result = AnthropicProvider(config).call(fields, alerts_text)
 
         assert result is None
 
@@ -307,7 +306,7 @@ class TestCallAnthropic:
                     ]
                 }
             )
-            result = _call_anthropic(fields, alerts_text, config)
+            result = AnthropicProvider(config).call(fields, alerts_text)
 
         assert result == "Drive looks good."
 
@@ -323,7 +322,7 @@ class TestCallAnthropic:
             mock_post.return_value = _make_mock_response(
                 {"content": [{"type": "text", "content": "Compat format result"}]}
             )
-            result = _call_anthropic(fields, alerts_text, config)
+            result = AnthropicProvider(config).call(fields, alerts_text)
 
         assert result == "Compat format result"
 
@@ -362,20 +361,26 @@ class TestCallLLMDispatcher:
 
 
 class TestExtractAnthropicText:
+    _provider = AnthropicProvider(
+        _make_config(
+            provider="anthropic", api_url="https://api.anthropic.com/v1/messages"
+        )
+    )
+
     def test_standard_format(self) -> None:
-        result = _extract_anthropic_text(
+        result = self._provider.parse_response(
             {"content": [{"type": "text", "text": "All clear."}]}
         )
         assert result == "All clear."
 
     def test_fallback_to_content_key(self) -> None:
-        result = _extract_anthropic_text(
+        result = self._provider.parse_response(
             {"content": [{"type": "text", "content": "Compat format"}]}
         )
         assert result == "Compat format"
 
     def test_skips_thinking_blocks(self) -> None:
-        result = _extract_anthropic_text(
+        result = self._provider.parse_response(
             {
                 "content": [
                     {"type": "thinking", "thinking": "Let me analyse..."},
@@ -386,23 +391,25 @@ class TestExtractAnthropicText:
         assert result == "Drive is healthy."
 
     def test_non_text_block_no_type_falls_through(self) -> None:
-        result = _extract_anthropic_text({"content": [{"content": "No type field"}]})
+        result = self._provider.parse_response(
+            {"content": [{"content": "No type field"}]}
+        )
         assert result == "No type field"
 
     def test_missing_content_key_raises(self) -> None:
         import pytest
 
         with pytest.raises(ValueError, match="no content blocks"):
-            _extract_anthropic_text({"id": "msg_123"})
+            self._provider.parse_response({"id": "msg_123"})
 
     def test_empty_content_raises(self) -> None:
         import pytest
 
         with pytest.raises(ValueError, match="no content blocks"):
-            _extract_anthropic_text({"content": []})
+            self._provider.parse_response({"content": []})
 
     def test_text_key_takes_priority_over_content_key(self) -> None:
-        result = _extract_anthropic_text(
+        result = self._provider.parse_response(
             {"content": [{"text": "primary", "content": "fallback"}]}
         )
         assert result == "primary"

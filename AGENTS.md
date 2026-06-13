@@ -17,7 +17,7 @@ smartscan is a CLI tool that runs `smartctl` on all disk devices, extracts key S
 ## Conventions
 
 - Application code lives under `src/smartscan`.
-- The CLI uses stdlib `argparse` with `argcomplete` for shell completion. Subcommands: `collect` and `query`.
+- The CLI uses stdlib `argparse` with `argcomplete` for shell completion. Subcommands: `collect`, `query`, and `identify`.
 - Terminal output uses [Rich](https://rich.readthedocs.io/) for styled tables and formatting.
 - Configuration uses [Pydantic](https://docs.pydantic.dev/) `BaseModel` for validation.
 - SMART field structures use `TypedDict` (`SmartInfo`) for type safety.
@@ -30,15 +30,18 @@ smartscan is a CLI tool that runs `smartctl` on all disk devices, extracts key S
 
 | Module | Responsibility |
 |---|---|
-| `constants.py` | Default paths, DB schema, error messages |
+| `constants.py` | Default paths, database migrations, error messages |
 | `exceptions.py` | `SmartScanError` hierarchy |
 | `models.py` | `SmartScanConfig` (Pydantic), `SmartInfo` (TypedDict) |
+| `fields.py` | `FieldDef` registry — single source of truth for field metadata, DB columns, display labels |
 | `config.py` | `load_config()` — read TOML config into `SmartScanConfig` |
 | `logging.py` | `setup_logging()` |
-| `smartctl.py` | `find_disks()`, `run_smartctl()`, `extract_fields()`, helpers |
-| `output.py` | Rich-powered `print_table()`, `print_query_table()`, `print_json_output()` |
-| `database.py` | SQLite init, open, save, query |
-| `commands.py` | `do_collect()`, `do_query()` |
+| `smartctl.py` | `find_disks()`, `run_smartctl()`, `extract_fields()`, `build_device_tree()`, helpers |
+| `thresholds.py` | `check_thresholds()`, `Alert` dataclass |
+| `output.py` | Rich-powered `print_table()`, `print_query_table()`, `print_json_output()`, `print_identify_tree()` |
+| `database.py` | SQLite init, open, save, query, schema generation |
+| `llm.py` | `BaseLLMProvider` → `OpenAIProvider` / `AnthropicProvider`, `call_llm()`, `_build_prompt()` |
+| `commands.py` | `do_collect()`, `do_query()`, `do_identify()` |
 | `cli.py` | `create_parser()`, `main()` |
 
 ## Testing Guidelines
