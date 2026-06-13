@@ -136,6 +136,27 @@ def _call_openai(
     return None
 
 
+def _extract_anthropic_text(data: dict[str, Any]) -> str:
+    """Extract the first text content block from an Anthropic-style response.
+
+    Tries ``text`` then ``content`` key inside each content block.
+    Skips non-text blocks (e.g. ``thinking``).
+    """
+    content_blocks: list[dict[str, Any]] = data.get("content", [])
+    if not content_blocks:
+        raise ValueError("no content blocks in response")
+
+    for block in content_blocks:
+        block_type = block.get("type", "")
+        if block_type and block_type != "text":
+            continue
+        for key in ("text", "content"):
+            if key in block:
+                return block[key]
+
+    raise ValueError("no text content block found in response")
+
+
 def _call_anthropic(
     fields: SmartInfo,
     alerts_text: str,
@@ -169,7 +190,7 @@ def _call_anthropic(
         )
         response.raise_for_status()
         data = response.json()
-        return data["content"][0]["text"]
+        return _extract_anthropic_text(data)
     except httpx2.HTTPStatusError as exc:
         logging.error(
             "LLM API returned HTTP %d: %s",
@@ -178,7 +199,7 @@ def _call_anthropic(
         )
     except httpx2.RequestError as exc:
         logging.error("LLM API request failed: %s", exc)
-    except (KeyError, IndexError, TypeError) as exc:
+    except (KeyError, IndexError, TypeError, ValueError) as exc:
         logging.error("Unexpected LLM API response format: %s", exc)
     except Exception:
         logging.exception("Unexpected error during LLM call")

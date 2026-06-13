@@ -5,7 +5,12 @@ from unittest.mock import MagicMock, patch
 
 from conftest import make_fields
 
-from smartscan.llm import _call_anthropic, _call_openai, call_llm
+from smartscan.llm import (
+    _call_anthropic,
+    _call_openai,
+    _extract_anthropic_text,
+    call_llm,
+)
 from smartscan.models import LLMConfig
 
 
@@ -285,6 +290,43 @@ class TestCallAnthropic:
 
         assert result is None
 
+    def test_handles_thinking_blocks(self) -> None:
+        fields = make_fields()
+        alerts_text = "  (none)"
+        config = _make_config(
+            provider="anthropic",
+            api_url="https://api.anthropic.com/v1/messages",
+        )
+
+        with patch("httpx2.post") as mock_post:
+            mock_post.return_value = _make_mock_response(
+                {
+                    "content": [
+                        {"type": "thinking", "thinking": "Analysing..."},
+                        {"type": "text", "text": "Drive looks good."},
+                    ]
+                }
+            )
+            result = _call_anthropic(fields, alerts_text, config)
+
+        assert result == "Drive looks good."
+
+    def test_handles_content_key_instead_of_text(self) -> None:
+        fields = make_fields()
+        alerts_text = "  (none)"
+        config = _make_config(
+            provider="anthropic",
+            api_url="https://ollama.example.com/v1/messages",
+        )
+
+        with patch("httpx2.post") as mock_post:
+            mock_post.return_value = _make_mock_response(
+                {"content": [{"type": "text", "content": "Compat format result"}]}
+            )
+            result = _call_anthropic(fields, alerts_text, config)
+
+        assert result == "Compat format result"
+
 
 class TestCallLLMDispatcher:
     def test_dispatches_to_openai_by_default(self) -> None:
@@ -317,3 +359,50 @@ class TestCallLLMDispatcher:
 
         assert result == "Anthropic result"
         assert mock_post.call_args.args[0].endswith("/messages")
+
+
+class TestExtractAnthropicText:
+    def test_standard_format(self) -> None:
+        result = _extract_anthropic_text(
+            {"content": [{"type": "text", "text": "All clear."}]}
+        )
+        assert result == "All clear."
+
+    def test_fallback_to_content_key(self) -> None:
+        result = _extract_anthropic_text(
+            {"content": [{"type": "text", "content": "Compat format"}]}
+        )
+        assert result == "Compat format"
+
+    def test_skips_thinking_blocks(self) -> None:
+        result = _extract_anthropic_text(
+            {
+                "content": [
+                    {"type": "thinking", "thinking": "Let me analyse..."},
+                    {"type": "text", "text": "Drive is healthy."},
+                ]
+            }
+        )
+        assert result == "Drive is healthy."
+
+    def test_non_text_block_no_type_falls_through(self) -> None:
+        result = _extract_anthropic_text({"content": [{"content": "No type field"}]})
+        assert result == "No type field"
+
+    def test_missing_content_key_raises(self) -> None:
+        import pytest
+
+        with pytest.raises(ValueError, match="no content blocks"):
+            _extract_anthropic_text({"id": "msg_123"})
+
+    def test_empty_content_raises(self) -> None:
+        import pytest
+
+        with pytest.raises(ValueError, match="no content blocks"):
+            _extract_anthropic_text({"content": []})
+
+    def test_text_key_takes_priority_over_content_key(self) -> None:
+        result = _extract_anthropic_text(
+            {"content": [{"text": "primary", "content": "fallback"}]}
+        )
+        assert result == "primary"
