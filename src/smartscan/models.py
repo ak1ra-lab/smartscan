@@ -52,7 +52,8 @@ class ThresholdRules(BaseModel):
 
 class LLMConfig(BaseModel):
     enabled: bool = False
-    endpoint: str = "https://api.openai.com/v1"
+    provider: Literal["openai", "anthropic"] = "openai"
+    api_url: str = "https://api.openai.com/v1/chat/completions"
     api_key: str = ""
     model: str = "gpt-4o-mini"
     max_tokens: int = 4096

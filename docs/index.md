@@ -102,15 +102,35 @@ log_file = "~/.local/state/smartscan/smartscan.log"
 
 # ── Threshold alerts ────────────────────────────────────────────
 [thresholds]
+# Master switch: set to false to disable all threshold checks
 enabled = true
+
+# Alert if disk temperature exceeds this value (Celsius)
 temperature_celsius = 50
+
+# Alert if any sectors have been reallocated (surface defects)
 reallocated_sector_ct = 0
+
+# Alert if sectors are pending remap (often indicates instability)
 current_pending_sector = 0
+
+# Alert if sectors are uncorrectable offline (possible surface damage)
 offline_uncorrectable = 0
+
+# Alert if the reallocation event counter has increased
 reallocated_event_count = 0
+
+# Alert if UDMA CRC errors occur (typically a cabling or controller issue)
 udma_crc_error_count = 0
+
+# Alert if the ATA SMART error log contains entries
 ata_smart_error_log_count = 0
+
+# Alert if the disk has retried spinning up (motor/bearing wear)
 spin_retry_count = 0
+
+# Alert if head load/unload cycle count exceeds this value
+# (600_000 is typical for many consumer hard drives; enterprise drives often rated higher)
 load_cycle_count = 600_000
 
 # ── LLM-based health analysis ──────────────────────────────────
@@ -118,13 +138,17 @@ load_cycle_count = 600_000
 # Set to true to enable LLM analysis (requires API key)
 enabled = false
 
-# OpenAI-compatible API endpoint
-endpoint = "https://api.openai.com/v1"
+# LLM API provider: "openai" (default) for OpenAI-compatible APIs,
+# "anthropic" for Anthropic's native Messages API
+provider = "openai"
+
+# Full API URL (must include the path, e.g. /chat/completions or /messages)
+api_url = "https://api.openai.com/v1/chat/completions"
 
 # Your API key (or set OPENAI_API_KEY environment variable)
 api_key = ""
 
-# Model name as recognised by the endpoint
+# Model name as recognised by the API
 model = "gpt-4o-mini"
 
 # Maximum tokens in the model response (output limit, not input)
@@ -162,17 +186,42 @@ To force LLM analysis on healthy disks (no threshold alerts), use:
 
     sudo smartscan collect --force-llm
 
-LLM example for DeepSeek (OpenAI-compatible),
+## LLM Examples
 
-```
-# ── LLM example: DeepSeek (OpenAI-compatible) ──────────────────
+### DeepSeek (OpenAI-compatible)
+
+```toml
 [llm]
 enabled = true
-endpoint = "https://api.deepseek.com"
+provider = "openai"
+api_url = "https://api.deepseek.com/chat/completions"
 api_key = "sk-your-deepseek-key"
 model = "deepseek-v4-flash"
 max_tokens = 4096
 timeout = 60
+```
+
+### Anthropic
+
+```toml
+[llm]
+enabled = true
+provider = "anthropic"
+api_url = "https://api.anthropic.com/v1/messages"
+api_key = "sk-ant-..."
+model = "claude-sonnet-4-20250514"
+max_tokens = 4096
+timeout = 60
+```
+
+### Local Ollama / LM Studio (no API key needed)
+
+```toml
+[llm]
+enabled = true
+provider = "openai"
+api_url = "http://localhost:11434/v1/chat/completions"
+model = "llama3"
 ```
 
 ## Shell completion
