@@ -6,6 +6,7 @@ A CLI tool that runs `smartctl` on all disks, extracts key SMART health metrics,
 
 - Collects SMART data via `smartctl --all --json` from `/dev/disk/by-id/ata-*` and `/dev/disk/by-id/nvme-*`.
 - Displays results as Rich-styled tables with warnings for critical values.
+- Maps disk devices to their `/dev/disk/` identifiers (by-id, by-path, by-diskseq) with a Rich tree view (`identify` subcommand).
 - Stores historical data in SQLite for trend analysis (`query` subcommand).
 - Supports JSON lines output for scripting.
 - Configurable via TOML config file with Pydantic validation.
@@ -51,8 +52,32 @@ Once logged in as root, run commands normally:
 smartscan collect
 smartscan collect "WDC"
 smartscan query --since 2024-01-01
+
 smartscan --json collect
 smartscan --json query --since 2024-01-01
+```
+
+`smartscan identify` maps block devices to their identifiers under `/dev/disk/`. It does not require root:
+
+```shell
+smartscan identify
+smartscan identify "Samsung"
+smartscan identify --source by-id
+smartscan identify --source by-id --source by-diskseq
+smartscan --json identify
+```
+
+Output example:
+
+```
+/dev/sda  [WDC WD40EFRX-68N32N0, 3.6 TiB]
+├── by-id
+│   ├── /dev/disk/by-id/ata-WDC_WD40EFRX-68N32N0_WD-WCC7K0123456
+│   └── /dev/disk/by-id/wwn-0x50014ee26b123456
+├── by-path
+│   └── /dev/disk/by-path/pci-0000:00:17.0-ata-1
+└── by-diskseq
+    └── /dev/disk/by-diskseq/1
 ```
 
 > `smartscan query` itself does not require root, but the default `db_path` resolves under the home directory of the user who ran `collect`. If you collected as root, the database lives under `/root/.local/share/smartscan/`, so query also needs root access to read it. Set a custom `db_path` in the config file to share the database across users.
