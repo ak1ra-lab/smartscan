@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-06-13
+
+### Added
+
+- `identify` subcommand for listing disk devices from `/dev/disk/by-*` with resolved device paths
+- `--exclude` flag for `identify` to filter devices by regex pattern against resolved paths
+- `--last-days` flag for `query` to restrict results to recent days
+- Anthropic API provider support (`provider = "anthropic"`) for LLM health analysis
+- `exclude_patterns` field in `[identify]` config; `last_days`, `since`, `until` in `[query]`
+
+### Changed
+
+- Configuration restructured into sub-models: `[collect]`, `[query]`, `[identify]`
+  `no_save` moved under `[collect]` (breaking change: update TOML config)
+- Documentation split into separate pages: `configuration.md` and `llm-examples.md`
+
+### Fixed
+
+- Anthropic response parsing now handles `thinking` blocks and proxies returning `"content"` instead of `"text"`
+- LLM `api_key` no longer validated as required, allowing local endpoints without authentication
+
 ## [0.1.0] - 2026-06-13
 
 ### Added
@@ -36,4 +57,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Database migration errors are now logged with a warning instead of being silently swallowed, except for expected "duplicate column" cases
 - Docker image now installs `smartmontools` so the `smartctl` binary is available at run time
 
+[0.2.0]: https://github.com/ak1ra-lab/smartscan/tag/?h=v0.2.0
 [0.1.0]: https://github.com/ak1ra-lab/smartscan/tag/?h=v0.1.0
