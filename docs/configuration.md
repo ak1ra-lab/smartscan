@@ -13,6 +13,12 @@ db_path = "~/.local/share/smartscan/smartscan.db"
 # Custom log file path
 log_file = "~/.local/state/smartscan/smartscan.log"
 
+# Regex patterns to exclude disk devices by symlink name or resolved path.
+# Applies to both `collect` and `lsblk` subcommands.
+# Useful for filtering out optical drives, loop devices, ZFS zvols, etc.
+# Example: exclude_patterns = ["BD-RE", '^/dev/(loop|zd)\d+']
+exclude_patterns = []
+
 # ── collect ────────────────────────────────────────────────────
 [collect]
 # Skip database writes (run once without saving)
@@ -34,11 +40,6 @@ no_save = false
 # Restrict to specific /dev/disk/ source directories
 # (by-id, by-path, by-diskseq; default: all when empty)
 # source = ["by-id", "by-path"]
-
-# Regex patterns to exclude resolved device paths.
-# Useful for filtering out loop devices, ZFS zvols, etc.
-# Example: exclude_patterns = ["^/dev/(loop|zd)\\d+"]
-exclude_patterns = []
 
 # ── Threshold alerts ────────────────────────────────────────────
 [thresholds]

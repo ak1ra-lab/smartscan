@@ -91,6 +91,7 @@ def test_lsblk_basic() -> None:
     assert args.command == "lsblk"
     assert args.pattern == ".*"
     assert args.lsblk_source is None
+    assert args.exclude_patterns == []
 
 
 def test_lsblk_with_pattern() -> None:
@@ -131,28 +132,43 @@ def test_lsblk_with_pattern_and_source() -> None:
 
 def test_lsblk_with_exclude() -> None:
     parser = create_parser()
-    args = parser.parse_args(["lsblk", "--exclude", "^/dev/loop"])
+    args = parser.parse_args(["--exclude", "^/dev/loop", "lsblk"])
     assert args.command == "lsblk"
-    assert args.lsblk_exclude == ["^/dev/loop"]
+    assert args.exclude_patterns == ["^/dev/loop"]
 
 
 def test_lsblk_with_multiple_excludes() -> None:
     parser = create_parser()
     args = parser.parse_args(
-        ["lsblk", "--exclude", "^/dev/loop", "--exclude", "^/dev/zd"]
+        ["--exclude", "^/dev/loop", "--exclude", "^/dev/zd", "lsblk"]
     )
-    assert args.lsblk_exclude == ["^/dev/loop", "^/dev/zd"]
+    assert args.exclude_patterns == ["^/dev/loop", "^/dev/zd"]
 
 
 def test_lsblk_with_exclude_and_source() -> None:
     parser = create_parser()
     args = parser.parse_args(
-        ["lsblk", "--source", "by-id", "--exclude", "^/dev/loop", "nvme"]
+        ["--exclude", "^/dev/loop", "lsblk", "--source", "by-id", "nvme"]
     )
     assert args.command == "lsblk"
     assert args.pattern == "nvme"
     assert args.lsblk_source == ["by-id"]
-    assert args.lsblk_exclude == ["^/dev/loop"]
+    assert args.exclude_patterns == ["^/dev/loop"]
+
+
+def test_collect_with_exclude() -> None:
+    parser = create_parser()
+    args = parser.parse_args(["--exclude", "BD-RE", "collect"])
+    assert args.command == "collect"
+    assert args.exclude_patterns == ["BD-RE"]
+
+
+def test_collect_with_multiple_excludes() -> None:
+    parser = create_parser()
+    args = parser.parse_args(
+        ["--exclude", "BD-RE", "--exclude", "^/dev/loop", "collect"]
+    )
+    assert args.exclude_patterns == ["BD-RE", "^/dev/loop"]
 
 
 def test_query_with_last_days() -> None:

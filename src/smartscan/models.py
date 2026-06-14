@@ -75,13 +75,13 @@ class QueryConfig(BaseModel):
 
 class LsblkConfig(BaseModel):
     source: list[str] = Field(default_factory=list)
-    exclude_patterns: list[str] = Field(default_factory=list)
 
 
 class SmartScanConfig(BaseModel):
     format: Literal["table", "json"] = "table"
     db_path: str = DEFAULT_DB_PATH
     log_file: str = DEFAULT_LOG_FILE
+    exclude_patterns: list[str] = Field(default_factory=list)
     collect: CollectConfig = Field(default_factory=CollectConfig)
     query: QueryConfig = Field(default_factory=QueryConfig)
     lsblk: LsblkConfig = Field(default_factory=LsblkConfig)

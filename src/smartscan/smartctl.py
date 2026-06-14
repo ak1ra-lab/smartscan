@@ -22,8 +22,8 @@ _PARTITION_NAME_RE = re.compile(
     r"$"
 )
 
-
 _SOURCE_DIRS = ("by-id", "by-path", "by-diskseq")
+_SECTOR_BYTES = 512
 
 
 def safe_get(data: dict[str, Any] | Any, *keys: str, default: Any = "N/A") -> Any:
@@ -82,7 +82,27 @@ def check_smartctl_error(returncode: int | None) -> None:
             logging.error("  %s", SMARTCTL_ERROR_MSGS[i])
 
 
-def find_disks(pattern: str) -> list[Path]:
+def _compile_exclude_patterns(
+    exclude_patterns: list[str] | None,
+) -> list[re.Pattern[str]]:
+    if not exclude_patterns:
+        return []
+    compiled: list[re.Pattern[str]] = []
+    for ep in exclude_patterns:
+        try:
+            compiled.append(re.compile(ep))
+        except re.error as exc:
+            raise DiskNotFoundError(f"Invalid exclude regex pattern: {exc}") from exc
+    return compiled
+
+
+def _is_excluded(
+    name: str, target: str, exclude_compiled: list[re.Pattern[str]]
+) -> bool:
+    return any(exc.search(name) or exc.search(target) for exc in exclude_compiled)
+
+
+def find_disks(pattern: str, exclude_patterns: list[str] | None = None) -> list[Path]:
     """Discover ATA and NVMe disk devices under ``/dev/disk/by-id/`` matching a regex pattern.
 
     Multiple by-id entries may point to the same physical block device
@@ -104,6 +124,8 @@ def find_disks(pattern: str) -> list[Path]:
     except re.error as exc:
         raise DiskNotFoundError(f"Invalid regex pattern: {exc}") from exc
 
+    exclude_compiled = _compile_exclude_patterns(exclude_patterns)
+
     disks: list[Path] = []
     by_target: dict[Path, Path] = {}
     _ns_re = re.compile(r"_\d+$")
@@ -118,6 +140,8 @@ def find_disks(pattern: str) -> list[Path]:
         if not compiled.search(name):
             continue
         target = entry.resolve()
+        if exclude_compiled and _is_excluded(name, str(target), exclude_compiled):
+            continue
         if target in by_target:
             existing_name = by_target[target].name
             old_is_eui = existing_name.startswith("nvme-eui.")
@@ -320,7 +344,7 @@ def _get_disk_info(dev_path: str) -> tuple[str, str, int]:
     size_file = sys_dir / "size"
     try:
         sectors = int(size_file.read_text().strip())
-        size_bytes = sectors * 512
+        size_bytes = sectors * _SECTOR_BYTES
     except (OSError, FileNotFoundError, ValueError):
         pass
 
@@ -360,15 +384,7 @@ def build_device_tree(
     except re.error as exc:
         raise DiskNotFoundError(f"Invalid regex pattern: {exc}") from exc
 
-    exclude_compiled: list[re.Pattern[str]] = []
-    if exclude_patterns:
-        for ep in exclude_patterns:
-            try:
-                exclude_compiled.append(re.compile(ep))
-            except re.error as exc:
-                raise DiskNotFoundError(
-                    f"Invalid exclude regex pattern: {exc}"
-                ) from exc
+    exclude_compiled = _compile_exclude_patterns(exclude_patterns)
 
     _part_re = re.compile(r"-part\d+$")
     seen_devices: dict[str, dict[str, list[str]]] = {}
@@ -388,7 +404,7 @@ def build_device_tree(
             if not compiled.search(name):
                 continue
             target = str(entry.resolve())
-            if exclude_compiled and any(exc.search(target) for exc in exclude_compiled):
+            if exclude_compiled and _is_excluded(name, target, exclude_compiled):
                 continue
             if not _is_whole_disk(target):
                 continue

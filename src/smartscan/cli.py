@@ -52,6 +52,15 @@ def _build_parser(config: SmartScanConfig | None = None) -> argparse.ArgumentPar
         default=cfg.format == "json",
         help="Output as JSON lines instead of table format",
     )
+    parser.add_argument(
+        "--exclude",
+        dest="exclude_patterns",
+        action="append",
+        metavar="PATTERN",
+        default=cfg.exclude_patterns,
+        help="Regex patterns to exclude disk devices by symlink name or resolved path "
+        "(may be repeated; appended to config exclude_patterns)",
+    )
 
     sub = parser.add_subparsers(dest="command", required=True)
 
@@ -132,15 +141,6 @@ def _build_parser(config: SmartScanConfig | None = None) -> argparse.ArgumentPar
         default=None,
         help="Restrict to specific /dev/disk/ source directories "
         "(appended to lsblk.source config; may be repeated; default: all)",
-    )
-    lsblk_parser.add_argument(
-        "--exclude",
-        dest="lsblk_exclude",
-        action="append",
-        metavar="PATTERN",
-        default=None,
-        help="Additional regex patterns to exclude resolved device paths "
-        "(appended to lsblk.exclude_patterns config; may be repeated)",
     )
 
     argcomplete.autocomplete(parser)

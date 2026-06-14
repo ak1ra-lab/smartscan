@@ -88,13 +88,11 @@ def do_lsblk(args: Namespace) -> None:
         sources_list.extend(args.lsblk_source)
     sources = tuple(sources_list)
 
-    exclude_list = list(config_cfg.exclude_patterns)
-    if args.lsblk_exclude:
-        exclude_list.extend(args.lsblk_exclude)
-
     try:
         devices = build_device_tree(
-            args.pattern, sources=sources, exclude_patterns=exclude_list or None
+            args.pattern,
+            sources=sources,
+            exclude_patterns=args.exclude_patterns or None,
         )
     except DiskNotFoundError as exc:
         logging.error("%s", exc)
@@ -120,7 +118,7 @@ def do_collect(args: Namespace) -> None:
             logging.error("Failed to open database at %s: %s", args.db_path, exc)
 
     try:
-        disks = find_disks(args.pattern)
+        disks = find_disks(args.pattern, exclude_patterns=args.exclude_patterns or None)
     except DiskNotFoundError as exc:
         logging.error("%s", exc)
         sys.exit(1)
