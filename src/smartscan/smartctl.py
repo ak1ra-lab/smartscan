@@ -388,6 +388,7 @@ def build_device_tree(
 
     _part_re = re.compile(r"-part\d+$")
     seen_devices: dict[str, dict[str, list[str]]] = {}
+    excluded_targets: set[str] = set()
     available_sources: list[str] = []
 
     for source in sources:
@@ -405,11 +406,15 @@ def build_device_tree(
                 continue
             target = str(entry.resolve())
             if exclude_compiled and _is_excluded(name, target, exclude_compiled):
+                excluded_targets.add(target)
                 continue
             if not _is_whole_disk(target):
                 continue
             full_path = str(entry)
             seen_devices.setdefault(target, {}).setdefault(source, []).append(full_path)
+
+    for target in excluded_targets:
+        seen_devices.pop(target, None)
 
     if not seen_devices:
         detail = ""
