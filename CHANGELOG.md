@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-06-14
+
+### Added
+
+- Global `--exclude` option usable by all subcommands, including `collect`
+- `exclude_patterns` top-level config key shared across subcommands
+- Exclude patterns now match both symlink names and resolved target paths
+
+### Changed
+
+- `identify` subcommand renamed to `lsblk` (**breaking**: CLI invocation changes)
+- `exclude_patterns` config key removed from `[lsblk]` section; use top-level key instead (**breaking**: update TOML config)
+- Extracted `fields.py` and `llm.py` into dedicated modules
+
 ## [0.2.0] - 2026-06-13
 
 ### Added
