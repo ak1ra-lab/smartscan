@@ -14,6 +14,11 @@ smartscan is a CLI tool that runs `smartctl` on all disk devices, extracts key S
 - DO NOT use ad hoc `pip install` commands instead of updating `pyproject.toml`.
 - DO NOT edit generated output under `site/`; rebuild it from source.
 
+## Agent Guidelines
+
+- Do not read or write files that are excluded by `.gitignore`, unless a skill or the user explicitly directs you to do so.
+- Proactively use available agent skills when a task matches a skill's description.
+
 ## Conventions
 
 - Application code lives under `src/smartscan`.
