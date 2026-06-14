@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Global `--exclude` option usable by all subcommands, including `collect`
+- Global `--exclude` option usable by `collect` and `lsblk` subcommands
 - `exclude_patterns` top-level config key shared across subcommands
 - Exclude patterns now match both symlink names and resolved target paths
 

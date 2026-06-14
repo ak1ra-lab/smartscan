@@ -19,7 +19,8 @@ Collect SMART data from all disks (requires root):
 
 ```bash
 sudo smartscan collect
-sudo smartscan collect "WDC"
+sudo smartscan collect --no-save "WDC"
+sudo smartscan collect --verbose
 sudo smartscan --json collect
 ```
 
@@ -27,6 +28,7 @@ Query historical records, filter by name, or get JSON output:
 
 ```bash
 smartscan query --since 2026-01-01
+smartscan query --last-days 7 --verbose
 ```
 
 Map disks to their /dev/disk/ identifiers (no root needed):
@@ -34,7 +36,7 @@ Map disks to their /dev/disk/ identifiers (no root needed):
 ```bash
 smartscan lsblk
 smartscan lsblk --source by-id "Samsung"
-smartscan lsblk --exclude '^/dev/(loop|zd)\d+'
+smartscan --exclude '^/dev/(loop|zd)\d+' lsblk
 ```
 
 Read the [full documentation](https://ak1ra-lab.github.io/smartscan/) for shell completion, configuration reference, and advanced usage.

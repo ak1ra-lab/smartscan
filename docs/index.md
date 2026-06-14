@@ -51,7 +51,10 @@ Once logged in as root, run commands normally:
 ```shell
 smartscan collect
 smartscan collect "WDC"
+smartscan collect --verbose
+
 smartscan query --since 2024-01-01
+smartscan query --last-days 7 --verbose
 
 smartscan --json collect
 smartscan --json query --since 2024-01-01
@@ -64,6 +67,7 @@ smartscan lsblk
 smartscan lsblk "Samsung"
 smartscan lsblk --source by-id
 smartscan lsblk --source by-id --source by-diskseq
+smartscan --exclude '^/dev/(loop|zd)\d+' lsblk
 smartscan --json lsblk
 ```
 
