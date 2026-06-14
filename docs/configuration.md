@@ -83,10 +83,12 @@ enabled = false
 # "anthropic" for Anthropic's native Messages API
 provider = "openai"
 
-# Full API URL (must include the path, e.g. /chat/completions or /messages)
+# Full API URL, must include the path, e.g.,
+#   https://api.openai.com/v1/chat/completions for OpenAI
+#   https://api.anthropic.com/v1/messages for Anthropic
 api_url = "https://api.openai.com/v1/chat/completions"
 
-# Your API key (or set OPENAI_API_KEY environment variable)
+# Your API key (or set OPENAI_API_KEY / ANTHROPIC_API_KEY environment variable)
 api_key = ""
 
 # Model name as recognised by the API

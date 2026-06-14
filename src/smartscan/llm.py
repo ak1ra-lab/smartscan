@@ -5,6 +5,7 @@ from __future__ import annotations
 import abc
 import json
 import logging
+import os
 from typing import Any
 
 from .fields import (
@@ -171,8 +172,9 @@ class OpenAIProvider(BaseLLMProvider):
 
     def build_headers(self) -> dict[str, str]:
         headers: dict[str, str] = {"Content-Type": "application/json"}
-        if self._config.api_key:
-            headers["Authorization"] = f"Bearer {self._config.api_key}"
+        api_key = os.environ.get("OPENAI_API_KEY", "") or self._config.api_key
+        if api_key:
+            headers["Authorization"] = f"Bearer {api_key}"
         return headers
 
     def parse_response(self, data: dict[str, Any]) -> str:
@@ -199,8 +201,9 @@ class AnthropicProvider(BaseLLMProvider):
             "Content-Type": "application/json",
             "anthropic-version": "2023-06-01",
         }
-        if self._config.api_key:
-            headers["x-api-key"] = self._config.api_key
+        api_key = os.environ.get("ANTHROPIC_API_KEY", "") or self._config.api_key
+        if api_key:
+            headers["x-api-key"] = api_key
         return headers
 
     def parse_response(self, data: dict[str, Any]) -> str:
