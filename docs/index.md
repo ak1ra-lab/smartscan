@@ -84,11 +84,14 @@ Output example:
     └── /dev/disk/by-diskseq/1
 ```
 
-> `smartscan query` itself does not require root, but the default `db_path` resolves under the home directory of the user who ran `collect`. If you collected as root, the database lives under `/root/.local/share/smartscan/`, so query also needs root access to read it. Set a custom `db_path` in the config file to share the database across users.
+> `smartscan query` itself does not require root, but the default `db_path` is
+> `/var/lib/smartscan/smartscan.db` — a system directory writable only by root.
+> To share the database across users, set a custom `db_path` in the config file
+> pointing to a location readable by all users.
 
 ## Configuration
 
-smartscan reads an optional TOML config file at `~/.config/smartscan/smartscan.toml`. All subcommands, thresholds, and LLM settings are configurable.
+smartscan reads an optional TOML config file at `/etc/smartscan/smartscan.toml`. All subcommands, thresholds, and LLM settings are configurable.
 
 See **[Configuration Reference](configuration.md)** for the full config file with all defaults, and **[LLM Examples](llm-examples.md)** for provider-specific snippets (DeepSeek, Anthropic, Ollama).
 

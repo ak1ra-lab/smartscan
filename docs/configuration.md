@@ -1,6 +1,14 @@
 # Configuration
 
-Create `~/.config/smartscan/smartscan.toml` (optional). All keys shown below with their default values:
+smartscan reads an optional TOML config file. When `--config` is not specified on
+the command line, the first file found among the following is used:
+
+1. `~/.config/smartscan/smartscan.toml` (XDG user config)
+2. `/etc/smartscan/smartscan.toml` (system-wide config)
+
+Pass `--config <path>` to use a specific file.
+
+All keys shown below with their default values:
 
 ```toml
 # ── Output ─────────────────────────────────────────────────────
@@ -8,10 +16,10 @@ Create `~/.config/smartscan/smartscan.toml` (optional). All keys shown below wit
 format = "table"
 
 # Custom database path
-db_path = "~/.local/share/smartscan/smartscan.db"
+db_path = "/var/lib/smartscan/smartscan.db"
 
 # Custom log file path
-log_file = "~/.local/state/smartscan/smartscan.log"
+log_file = "/var/log/smartscan/smartscan.log"
 
 # Regex patterns to exclude disk devices by symlink name or resolved path.
 # Applies to both `collect` and `lsblk` subcommands.

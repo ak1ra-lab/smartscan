@@ -12,7 +12,7 @@ import argcomplete
 
 from .commands import do_collect, do_lsblk, do_query
 from .config import load_config
-from .constants import DEFAULT_CONFIG_PATH, DEFAULT_DB_PATH, DEFAULT_LOG_FILE
+from .constants import DEFAULT_DB_PATH, DEFAULT_LOG_FILE
 from .exceptions import SmartScanError
 from .logging import setup_logging
 from .models import SmartScanConfig
@@ -33,8 +33,10 @@ def _build_parser(config: SmartScanConfig | None = None) -> argparse.ArgumentPar
 
     parser.add_argument(
         "--config",
-        default=DEFAULT_CONFIG_PATH,
-        help=f"TOML config file path (default: {DEFAULT_CONFIG_PATH})",
+        default=None,
+        help="TOML config file path "
+        "(searches ~/.config/smartscan/smartscan.toml then "
+        "/etc/smartscan/smartscan.toml when not specified)",
     )
     parser.add_argument(
         "--db-path",
@@ -151,7 +153,7 @@ def main() -> None:
     """Entry point: load config, parse args, and dispatch to the appropriate subcommand."""
     try:
         pre_parser = argparse.ArgumentParser(add_help=False)
-        pre_parser.add_argument("--config", default=DEFAULT_CONFIG_PATH)
+        pre_parser.add_argument("--config", default=None)
         pre_args, remaining = pre_parser.parse_known_args()
 
         config = load_config(pre_args.config)

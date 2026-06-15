@@ -27,12 +27,27 @@ def _expand_env_vars(obj: Any) -> Any:
 
 
 def load_config(config_path: str | None = None) -> SmartScanConfig:
-    """Read a TOML configuration file and return a validated :class:`SmartScanConfig`."""
-    from .constants import DEFAULT_CONFIG_PATH
+    """Read a TOML configuration file and return a validated :class:`SmartScanConfig`.
 
-    path = config_path or DEFAULT_CONFIG_PATH
-    expanded = Path(path).expanduser()
-    if not expanded.is_file():
+    When *config_path* is given, only that file is tried.
+    When *config_path* is ``None``, the first file found among ``CONFIG_SEARCH_PATHS`` is used.
+    If no config file exists, a default :class:`SmartScanConfig` is returned.
+    """
+    from .constants import CONFIG_SEARCH_PATHS
+
+    candidates: list[Path]
+    if config_path is not None:
+        candidates = [Path(config_path).expanduser()]
+    else:
+        candidates = [Path(p).expanduser() for p in CONFIG_SEARCH_PATHS]
+
+    expanded = None
+    for candidate in candidates:
+        if candidate.is_file():
+            expanded = candidate
+            break
+
+    if expanded is None:
         return SmartScanConfig()
 
     try:

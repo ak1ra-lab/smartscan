@@ -1,8 +1,18 @@
 """Default paths, database migration constants, and error messages."""
 
-DEFAULT_DB_PATH = "~/.local/share/smartscan/smartscan.db"
-DEFAULT_LOG_FILE = "~/.local/state/smartscan/smartscan.log"
-DEFAULT_CONFIG_PATH = "~/.config/smartscan/smartscan.toml"
+import os
+
+DEFAULT_DB_PATH = "/var/lib/smartscan/smartscan.db"
+DEFAULT_LOG_FILE = "/var/log/smartscan/smartscan.log"
+
+CONFIG_SEARCH_PATHS = (
+    os.path.join(
+        os.environ.get("XDG_CONFIG_HOME", os.path.expanduser("~/.config")),
+        "smartscan",
+        "smartscan.toml",
+    ),
+    "/etc/smartscan/smartscan.toml",
+)
 
 SMARTCTL_ERROR_MSGS = [
     "Bit 0: Command line did not parse.",
