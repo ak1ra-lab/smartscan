@@ -60,7 +60,9 @@ def _collect_one_disk(
     llm_analysis = None
     if args.force_llm or (args.llm_config.enabled and alerts):
         alerts_text = _build_alerts_text(alerts)
-        llm_analysis = call_llm(fields, alerts_text, args.llm_config, raw_data=data)
+        llm_analysis = call_llm(
+            fields, alerts_text, args.llm_config, raw_data=data, returncode=rc
+        )
     if llm_analysis:
         if not args.json:
             print_llm_analysis(llm_analysis)

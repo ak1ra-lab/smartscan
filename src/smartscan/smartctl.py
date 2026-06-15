@@ -72,14 +72,21 @@ def find_in_table(
     return default
 
 
+def smartctl_error_lines(returncode: int) -> list[str]:
+    """Return human-readable error descriptions for each bit in the smartctl exit code."""
+    lines = [f"smartctl exit code: {returncode}"]
+    for i in range(8):
+        if (returncode >> i) & 1:
+            lines.append(f"  {SMARTCTL_ERROR_MSGS[i]}")
+    return lines
+
+
 def check_smartctl_error(returncode: int | None) -> None:
     """Log human-readable error messages for each bit in the smartctl exit code."""
     if returncode is None or returncode == 0:
         return
-    logging.error("smartctl returned error code: %d", returncode)
-    for i in range(8):
-        if (returncode >> i) & 1:
-            logging.error("  %s", SMARTCTL_ERROR_MSGS[i])
+    for line in smartctl_error_lines(returncode):
+        logging.error("  %s", line)
 
 
 def _compile_exclude_patterns(

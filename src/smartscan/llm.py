@@ -15,10 +15,14 @@ from .fields import (
     get_field,
 )
 from .models import LLMConfig, SmartInfo
+from .smartctl import smartctl_error_lines
 
 
 def _build_prompt(
-    fields: SmartInfo, alerts_text: str, raw_data: dict[str, Any] | None = None
+    fields: SmartInfo,
+    alerts_text: str,
+    raw_data: dict[str, Any] | None = None,
+    returncode: int | None = None,
 ) -> str:
     lines = ["SMART Data for Analysis:", ""]
 
@@ -49,6 +53,11 @@ def _build_prompt(
         lines.extend(["", "Raw smartctl JSON:", "```json", raw_json, "```"])
 
     lines.extend(["", "Triggered Alerts:", alerts_text])
+
+    if returncode is not None and returncode != 0:
+        lines.append("")
+        lines.extend(smartctl_error_lines(returncode))
+
     return "\n".join(lines)
 
 
@@ -135,9 +144,12 @@ class BaseLLMProvider(abc.ABC):
         fields: SmartInfo,
         alerts_text: str,
         raw_data: dict[str, Any] | None = None,
+        returncode: int | None = None,
     ) -> str | None:
         self.check_url_mismatch()
-        user_prompt = _build_prompt(fields, alerts_text, raw_data=raw_data)
+        user_prompt = _build_prompt(
+            fields, alerts_text, raw_data=raw_data, returncode=returncode
+        )
 
         body = self.build_body(user_prompt)
         headers = self.build_headers()
@@ -246,9 +258,12 @@ def call_llm(
     alerts_text: str,
     config: LLMConfig,
     raw_data: dict[str, Any] | None = None,
+    returncode: int | None = None,
 ) -> str | None:
     """Call the configured LLM provider's API.
 
     Returns the LLM's analysis text, or ``None`` on any failure.
     """
-    return _get_provider(config).call(fields, alerts_text, raw_data=raw_data)
+    return _get_provider(config).call(
+        fields, alerts_text, raw_data=raw_data, returncode=returncode
+    )
