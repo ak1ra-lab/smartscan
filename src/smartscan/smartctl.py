@@ -75,6 +75,9 @@ def find_in_table(
 def smartctl_error_lines(returncode: int) -> list[str]:
     """Return human-readable error descriptions for each bit in the smartctl exit code."""
     lines = [f"smartctl exit code: {returncode}"]
+    if returncode < 0:
+        lines.append(f"  Process terminated by signal {-returncode}")
+        return lines
     for i in range(8):
         if (returncode >> i) & 1:
             lines.append(f"  {SMARTCTL_ERROR_MSGS[i]}")
@@ -83,7 +86,7 @@ def smartctl_error_lines(returncode: int) -> list[str]:
 
 def check_smartctl_error(returncode: int | None) -> None:
     """Log human-readable error messages for each bit in the smartctl exit code."""
-    if returncode is None or returncode == 0:
+    if returncode is None or returncode <= 0:
         return
     for line in smartctl_error_lines(returncode):
         logging.error("  %s", line)
