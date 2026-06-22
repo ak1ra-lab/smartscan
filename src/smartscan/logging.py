@@ -1,37 +1,36 @@
-"""Logging setup with stderr and optional file output."""
+"""Logging setup — writes to a log file only, keeping terminal output clean for Rich."""
 
 from __future__ import annotations
 
 import logging
-import os
-import sys
 from pathlib import Path
 
 
-def setup_logging(log_file: str | None = None) -> None:
-    """Configure the root logger with stderr output and an optional file handler."""
+def setup_logging(log_file: str | None = None, log_level: str = "WARNING") -> None:
+    """Configure the root logger with a file handler at the given *log_level*.
+
+    No stderr handler is attached — logging output does not compete with
+    CLI console output (Rich tables, JSON lines, etc.).
+    """
     root = logging.getLogger()
     if root.handlers:
         return
+
     root.setLevel(logging.DEBUG)
 
-    debug = os.environ.get("DEBUG", "").lower() in ("1", "true", "yes")
-    stderr_level = logging.DEBUG if debug else logging.WARNING
-    stderr_handler = logging.StreamHandler(sys.stderr)
-    stderr_handler.setLevel(stderr_level)
-    stderr_handler.setFormatter(logging.Formatter("%(message)s"))
-    root.addHandler(stderr_handler)
-
     if log_file:
-        _add_file_handler(root, log_file)
+        _add_file_handler(root, log_file, log_level)
+    else:
+        root.addHandler(logging.NullHandler())
 
 
-def _add_file_handler(root: logging.Logger, log_file: str) -> None:
+def _add_file_handler(root: logging.Logger, log_file: str, log_level: str) -> None:
+    level = getattr(logging, log_level.upper(), logging.WARNING)
     try:
         log_path = Path(log_file).expanduser()
         log_path.parent.mkdir(parents=True, exist_ok=True)
         fh = logging.FileHandler(str(log_path))
-        fh.setLevel(logging.DEBUG)
+        fh.setLevel(level)
         fh.setFormatter(
             logging.Formatter(
                 "[%(asctime)s][%(levelname)s] %(message)s",
@@ -40,4 +39,4 @@ def _add_file_handler(root: logging.Logger, log_file: str) -> None:
         )
         root.addHandler(fh)
     except OSError as exc:
-        logging.warning("Cannot create log file %s: %s", log_file, exc)
+        print(f"Cannot create log file {log_file}: {exc}", flush=True)

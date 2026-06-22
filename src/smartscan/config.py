@@ -48,7 +48,10 @@ def load_config(config_path: str | None = None) -> SmartScanConfig:
             break
 
     if expanded is None:
+        logging.debug("No config file found, using defaults")
         return SmartScanConfig()
+
+    logging.debug("Loading config from %s", expanded)
 
     try:
         raw = tomllib.loads(expanded.read_text(encoding="utf-8"))

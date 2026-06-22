@@ -51,6 +51,7 @@ def init_db(db_path: str) -> sqlite3.Connection:
     """Create or open the SQLite database, applying the schema and enabling WAL mode."""
     expanded = Path(db_path).expanduser()
     expanded.parent.mkdir(parents=True, exist_ok=True)
+    logging.debug("Initializing database at %s", expanded)
     conn = sqlite3.connect(str(expanded))
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
@@ -158,3 +159,4 @@ def save_to_db(
         ),
     )
     conn.commit()
+    logging.debug("Saved record for %s at %s", disk_name, timestamp)

@@ -111,6 +111,7 @@ class SmartScanConfig(BaseModel):
     format: Literal["table", "json"] = "table"
     db_path: str = DEFAULT_DB_PATH
     log_file: str = DEFAULT_LOG_FILE
+    log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "WARNING"
     exclude_patterns: list[str] = Field(default_factory=list)
     collect: CollectConfig = Field(default_factory=CollectConfig)
     query: QueryConfig = Field(default_factory=QueryConfig)

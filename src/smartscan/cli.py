@@ -49,6 +49,12 @@ def _build_parser(config: SmartScanConfig | None = None) -> argparse.ArgumentPar
         help=f"Log file path (default: {DEFAULT_LOG_FILE})",
     )
     parser.add_argument(
+        "--log-level",
+        default=None,
+        choices=["DEBUG", "INFO", "WARNING", "ERROR"],
+        help="Log level for the log file (default: from config, WARNING)",
+    )
+    parser.add_argument(
         "--json",
         action="store_true",
         default=cfg.format == "json",
@@ -171,7 +177,9 @@ def main() -> None:
         parser = _build_parser(config)
         args = parser.parse_args(remaining)
 
-        setup_logging(args.log_file)
+        setup_logging(args.log_file, log_level=args.log_level or config.log_level)
+
+        logging.debug("dispatching command: %s", args.command)
 
         args.thresholds_enabled = config.thresholds.enabled
         args.threshold_rules = config.thresholds
@@ -188,5 +196,5 @@ def main() -> None:
         else:
             do_collect(args)
     except SmartScanError as exc:
-        logging.error("%s", exc)
+        print(f"Error: {exc}", file=sys.stderr)
         sys.exit(1)

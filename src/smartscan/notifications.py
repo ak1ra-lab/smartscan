@@ -159,10 +159,13 @@ class FeishuNotifier(BaseNotifier):
 def _get_notifiers(notify_config: Any) -> list[BaseNotifier]:
     notifiers: list[BaseNotifier] = []
     if notify_config.telegram.enabled and notify_config.telegram.bot_token:
+        logging.debug("Telegram notifier enabled")
         notifiers.append(TelegramNotifier(notify_config.telegram))
     if notify_config.dingtalk.enabled and notify_config.dingtalk.webhook_url:
+        logging.debug("DingTalk notifier enabled")
         notifiers.append(DingTalkNotifier(notify_config.dingtalk))
     if notify_config.feishu.enabled and notify_config.feishu.webhook_url:
+        logging.debug("Feishu notifier enabled")
         notifiers.append(FeishuNotifier(notify_config.feishu))
     if not notifiers:
         logging.info("No notification channels configured, skipping.")
@@ -178,8 +181,12 @@ def send_notifications(
 ) -> None:
     hostname = socket.gethostname()
     text = _build_report_text(hostname, disk_results, batch_llm_analysis)
+    logging.debug("Report text length: %d chars", len(text))
 
-    for notifier in _get_notifiers(notify_config):
+    notifiers = _get_notifiers(notify_config)
+    logging.debug("%d notification channel(s) ready", len(notifiers))
+
+    for notifier in notifiers:
         name = type(notifier).__name__
         logging.info("Sending %s notification ...", name)
         try:

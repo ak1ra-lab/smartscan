@@ -44,15 +44,25 @@ def _collect_disk_data(symlink: Any, args: Namespace) -> DiskEntry:
     disk_name: str = symlink.name
     disk_path: str = os.readlink(symlink)
 
+    logging.debug("Collecting SMART data from %s (%s)", disk_name, disk_path)
     data, rc = run_smartctl(symlink)
     if not data:
+        logging.debug("No SMART data returned for %s (rc=%d)", disk_name, rc)
         return disk_name, disk_path, None, [], None, rc, None
 
     fields = extract_fields(data)
+    logging.debug("Extracted %d fields for %s", len(fields), disk_name)
 
     alerts: list[Alert] = []
     if args.thresholds_enabled:
         alerts = check_thresholds(fields, args.threshold_rules)
+        if alerts:
+            logging.debug(
+                "%d alert(s) triggered for %s: %s",
+                len(alerts),
+                disk_name,
+                [a.field for a in alerts],
+            )
 
     return disk_name, disk_path, fields, alerts, data, rc, None
 
@@ -84,6 +94,7 @@ def _save_entry(
         return
     try:
         save_to_db(conn, disk_name, disk_path, fields, data, llm_analysis=llm_analysis)
+        logging.debug("Saved SMART data to DB for %s", disk_name)
     except sqlite3.Error as exc:
         logging.error("Failed to save SMART data for %s: %s", disk_name, exc)
 
@@ -98,12 +109,18 @@ def _try_llm_per_disk(
     llm_mode = args.llm  # None | "all" | "summary" | "off"
 
     if llm_mode == "off" or llm_mode == "summary":
+        logging.debug("LLM skipped (mode=%s)", llm_mode or "default")
         return None
 
     if llm_mode is None:
-        if not args.llm_config.enabled or not alerts:
+        if not args.llm_config.enabled:
+            logging.debug("LLM skipped (llm.enabled=false)")
+            return None
+        if not alerts:
+            logging.debug("LLM skipped (no alerts)")
             return None
 
+    logging.debug("Calling per-disk LLM (mode=%s)", llm_mode or "default")
     alerts_text = _build_alerts_text(alerts)
     return call_llm(fields, alerts_text, args.llm_config, raw_data=data, returncode=rc)
 
@@ -120,10 +137,17 @@ def _has_any_notifier_channel(notify_config: Any) -> bool:
 
 def _should_notify(args: Namespace, entries: list[DiskEntry]) -> bool:
     if not _has_any_notifier_channel(args.notify_config):
+        logging.debug("Notify skipped: no channels configured")
         return False
     if args.notify:
+        logging.debug("Notify triggered: --notify flag")
         return True
-    return any(alerts for _, _, _, alerts, *_ in entries)
+    triggered = any(alerts for _, _, _, alerts, *_ in entries)
+    if triggered:
+        logging.debug("Notify triggered: alerts present")
+    else:
+        logging.debug("Notify skipped: no alerts and --notify not set")
+    return triggered
 
 
 def _maybe_notify(
@@ -134,6 +158,7 @@ def _maybe_notify(
     if not _should_notify(args, entries):
         return
     entries_with_fields = [e for e in entries if e[2] is not None]
+    logging.debug("Dispatching notifications for %d disk(s)", len(entries_with_fields))
     send_notifications(
         args.notify_config,
         entries_with_fields,
@@ -161,7 +186,7 @@ def do_lsblk(args: Namespace) -> None:
             exclude_patterns=args.exclude_patterns or None,
         )
     except DiskNotFoundError as exc:
-        logging.error("%s", exc)
+        print(f"Error: {exc}", file=sys.stderr)
         sys.exit(1)
 
     if args.json:
@@ -176,18 +201,32 @@ def do_collect(args: Namespace) -> None:
             "This program typically requires root privileges to access SMART data."
         )
 
+    logging.debug(
+        "collect: pattern=%r llm=%s notify=%s no_save=%s",
+        args.pattern,
+        args.llm or "default",
+        args.notify,
+        args.no_save,
+    )
+
     conn = None
     if not args.no_save:
         try:
             conn = init_db(args.db_path)
+            logging.debug("Database opened at %s", args.db_path)
         except OSError as exc:
-            logging.error("Failed to open database at %s: %s", args.db_path, exc)
+            print(
+                f"Error: Failed to open database at {args.db_path}: {exc}",
+                file=sys.stderr,
+            )
 
     try:
         disks = find_disks(args.pattern, exclude_patterns=args.exclude_patterns or None)
     except DiskNotFoundError as exc:
-        logging.error("%s", exc)
+        print(f"Error: {exc}", file=sys.stderr)
         sys.exit(1)
+
+    logging.info("Collecting SMART data from %d disk(s)", len(disks))
 
     entries: list[DiskEntry] = []
     exit_code = 0
@@ -209,6 +248,9 @@ def do_collect(args: Namespace) -> None:
             if not args.json:
                 print_llm_analysis(llm_analysis)
             if args.llm_config.delay > 0 and disk_idx < len(disks) - 1:
+                logging.debug(
+                    "Sleeping %.1fs before next LLM call", args.llm_config.delay
+                )
                 time.sleep(args.llm_config.delay)
             # write-back into entry for notifications
             entry = (disk_name, disk_path, fields, alerts, data, rc, llm_analysis)
@@ -220,15 +262,19 @@ def do_collect(args: Namespace) -> None:
     if args.llm == "summary":
         valid = [(n, p, f, a, d, rc, la) for n, p, f, a, d, rc, la in entries if f]
         if valid:
+            logging.info("Running batch LLM analysis on %d disk(s)", len(valid))
             batch_llm_analysis = call_llm_batch(valid, args.llm_config)
             if batch_llm_analysis and not args.json:
                 print_llm_analysis(batch_llm_analysis)
+        else:
+            logging.debug("Batch LLM skipped: no valid disk data")
 
     _maybe_notify(args, entries, batch_llm_analysis)
 
     if conn:
         conn.close()
 
+    logging.debug("collect: done (exit_code=%d)", exit_code)
     sys.exit(exit_code)
 
 
@@ -246,6 +292,14 @@ def do_query(args: Namespace) -> None:
 
     until_str = args.until or args.query_config.until
 
+    logging.debug(
+        "query: pattern=%r last_days=%s since=%s until=%s",
+        args.pattern,
+        last_days,
+        since_str,
+        until_str,
+    )
+
     since = parse_date(since_str) if since_str else None
     until = parse_date(until_str) if until_str else None
 
@@ -256,14 +310,11 @@ def do_query(args: Namespace) -> None:
     try:
         rows = query_smart_info(conn, args.pattern, since, until)
     except sqlite3.OperationalError as exc:
-        logging.error("Query failed: %s", exc)
+        print(f"Error: Query failed: {exc}", file=sys.stderr)
         conn.close()
         sys.exit(1)
 
-    if not rows:
-        logging.info("No SMART records found matching the query.")
-        conn.close()
-        sys.exit(0)
+    logging.info("Query returned %d record(s)", len(rows))
 
     for row in rows:
         fields = row_to_fields(row)

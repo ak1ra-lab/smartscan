@@ -183,6 +183,7 @@ def run_smartctl(disk_path: Path) -> tuple[dict[str, Any], int]:
     Raises:
         SmartctlError: If the smartctl binary is not found.
     """
+    logging.debug("Running smartctl on %s", disk_path)
     try:
         result = subprocess.run(
             ["smartctl", "--all", "--json", str(disk_path)],
@@ -314,7 +315,9 @@ def _rotation_display(data: dict[str, Any]) -> str:
 def extract_fields(data: dict[str, Any]) -> SmartInfo:
     """Extract key SMART health metrics from raw smartctl JSON output into a typed dict."""
     if "nvme_smart_health_information_log" in data:
+        logging.debug("Extracting NVMe health fields")
         return _extract_nvme_health(data)
+    logging.debug("Extracting ATA health fields")
     return _extract_ata_health(data)
 
 

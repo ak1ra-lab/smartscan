@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 
 from .models import SmartInfo, ThresholdRules
@@ -40,6 +41,7 @@ def check_thresholds(fields: SmartInfo, rules: ThresholdRules) -> list[Alert]:
     alerts: list[Alert] = []
 
     if not rules.enabled:
+        logging.debug("Threshold checking disabled")
         return alerts
 
     smart_status = fields["smart_status"]
@@ -106,4 +108,5 @@ def check_thresholds(fields: SmartInfo, rules: ThresholdRules) -> list[Alert]:
                     f"(threshold: {rules.reallocated_sector_ct}, >10=critical)"
                 )
 
+    logging.debug("Threshold check: %d alert(s) triggered", len(alerts))
     return alerts

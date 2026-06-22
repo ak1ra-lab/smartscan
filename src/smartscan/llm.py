@@ -264,6 +264,7 @@ def call_llm(
 
     Returns the LLM's analysis text, or ``None`` on any failure.
     """
+    logging.debug("Calling LLM (provider=%s model=%s)", config.provider, config.model)
     return _get_provider(config).call(
         fields, alerts_text, raw_data=raw_data, returncode=returncode
     )
@@ -337,6 +338,12 @@ def call_llm_batch(
 
     Returns the LLM's analysis text, or ``None`` on any failure.
     """
+    logging.debug(
+        "Calling batch LLM with %d disk(s) (provider=%s model=%s)",
+        len(entries),
+        config.provider,
+        config.model,
+    )
     batch_config = config.model_copy(
         update={"system_prompt": config.batch_system_prompt}
     )
