@@ -19,12 +19,23 @@ from .fields import (
 from .models import LLMConfig, SmartInfo
 from .smartctl import smartctl_error_lines
 
+_LANG_INSTRUCTIONS: dict[str, str] = {
+    "zh": "Please respond in Chinese (简体中文).",
+}
+
+
+def _lang_instruction(lang: str | None) -> str | None:
+    if lang is None:
+        return None
+    return _LANG_INSTRUCTIONS.get(lang)
+
 
 def _build_prompt(
     fields: SmartInfo,
     alerts_text: str,
     raw_data: dict[str, Any] | None = None,
     returncode: int | None = None,
+    lang: str | None = None,
 ) -> str:
     lines = ["SMART Data for Analysis:", ""]
 
@@ -59,6 +70,10 @@ def _build_prompt(
     if returncode is not None and returncode != 0:
         lines.append("")
         lines.extend(smartctl_error_lines(returncode))
+
+    instruction = _lang_instruction(lang)
+    if instruction:
+        lines.extend(["", instruction])
 
     return "\n".join(lines)
 
@@ -148,7 +163,11 @@ class BaseLLMProvider(abc.ABC):
     ) -> str | None:
         self.check_url_mismatch()
         user_prompt = _build_prompt(
-            fields, alerts_text, raw_data=raw_data, returncode=returncode
+            fields,
+            alerts_text,
+            raw_data=raw_data,
+            returncode=returncode,
+            lang=self._config.lang,
         )
 
         body = self.build_body(user_prompt)
@@ -274,6 +293,7 @@ def _build_batch_prompt(
     entries: list[
         tuple[str, str, SmartInfo, list[Any], dict[str, Any] | None, int, str | None]
     ],
+    lang: str | None = None,
 ) -> str:
     lines = [
         f"SMART data from {len(entries)} disk devices is provided below.",
@@ -325,6 +345,10 @@ def _build_batch_prompt(
 
         lines.append("")
 
+    instruction = _lang_instruction(lang)
+    if instruction:
+        lines.append(instruction)
+
     return "\n".join(lines)
 
 
@@ -349,7 +373,7 @@ def call_llm_batch(
     )
     provider = _get_provider(batch_config)
     provider.check_url_mismatch()
-    user_prompt = _build_batch_prompt(entries)
+    user_prompt = _build_batch_prompt(entries, lang=config.lang)
     body = provider.build_body(user_prompt)
     headers = provider.build_headers()
     data = _do_request(config.api_url, headers, body, config.timeout)
@@ -366,6 +390,7 @@ def _build_trend_prompt(
     disk_name: str,
     disk_path: str,
     entries: list[tuple[str, SmartInfo]],
+    lang: str | None = None,
 ) -> str:
     from .fields import MONITORED_FIELDS, TIME_SERIES_FIELDS
 
@@ -419,6 +444,10 @@ def _build_trend_prompt(
         ]
     )
 
+    instruction = _lang_instruction(lang)
+    if instruction:
+        lines.append(instruction)
+
     return "\n".join(lines)
 
 
@@ -441,7 +470,7 @@ def call_llm_trend(
     )
     provider = _get_provider(config)
     provider.check_url_mismatch()
-    user_prompt = _build_trend_prompt(disk_name, disk_path, entries)
+    user_prompt = _build_trend_prompt(disk_name, disk_path, entries, lang=config.lang)
     body = provider.build_body(user_prompt)
     headers = provider.build_headers()
     data = _do_request(config.api_url, headers, body, config.timeout)

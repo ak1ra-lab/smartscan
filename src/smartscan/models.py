@@ -65,6 +65,7 @@ class LLMConfig(BaseModel):
     timeout: int = 120
     temperature: float = 0.3
     delay: float = 0.0
+    lang: str | None = None
     system_prompt: str = DEFAULT_SYSTEM_PROMPT
     batch_system_prompt: str = DEFAULT_BATCH_SYSTEM_PROMPT
 
