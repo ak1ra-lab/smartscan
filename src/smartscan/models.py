@@ -77,6 +77,30 @@ class LsblkConfig(BaseModel):
     source: list[str] = Field(default_factory=list)
 
 
+class TelegramConfig(BaseModel):
+    enabled: bool = False
+    bot_token: str = ""
+    chat_id: str = ""
+
+
+class DingTalkConfig(BaseModel):
+    enabled: bool = False
+    webhook_url: str = ""
+    secret: str = ""
+
+
+class FeishuConfig(BaseModel):
+    enabled: bool = False
+    webhook_url: str = ""
+    secret: str = ""
+
+
+class NotificationConfig(BaseModel):
+    telegram: TelegramConfig = Field(default_factory=TelegramConfig)
+    dingtalk: DingTalkConfig = Field(default_factory=DingTalkConfig)
+    feishu: FeishuConfig = Field(default_factory=FeishuConfig)
+
+
 class SmartScanConfig(BaseModel):
     format: Literal["table", "json"] = "table"
     db_path: str = DEFAULT_DB_PATH
@@ -87,3 +111,4 @@ class SmartScanConfig(BaseModel):
     lsblk: LsblkConfig = Field(default_factory=LsblkConfig)
     thresholds: ThresholdRules = Field(default_factory=ThresholdRules)
     llm: LLMConfig = Field(default_factory=LLMConfig)
+    notify: NotificationConfig = Field(default_factory=NotificationConfig)
