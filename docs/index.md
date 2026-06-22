@@ -6,8 +6,10 @@ A CLI tool that runs `smartctl` on all disks, extracts key SMART health metrics,
 
 - Collects SMART data via `smartctl --all --json` from `/dev/disk/by-id/ata-*` and `/dev/disk/by-id/nvme-*`.
 - Displays results as Rich-styled tables with warnings for critical values.
-- Maps disk devices to their `/dev/disk/` identifiers (by-id, by-path, by-diskseq) with a Rich tree view (`lsblk` subcommand).
-- Stores historical data in SQLite for trend analysis (`query` subcommand).
+- Sends notifications via Telegram, DingTalk, or Feishu when threshold alerts trigger.
+- Stores historical data in SQLite and compacts redundant records automatically (`query` subcommand).
+- **New**: `prune` subcommand to clean up unchanged records; `query --trend` for LLM-powered trend analysis.
+- Maps disk devices to their `/dev/disk/` identifiers with a Rich tree view (`lsblk` subcommand).
 - Supports JSON lines output for scripting.
 - Configurable via TOML config file with Pydantic validation.
 - Built with `uv`, `ruff`, `ty`, `pytest`, and `zensical`.
@@ -52,9 +54,20 @@ Once logged in as root, run commands normally:
 smartscan collect
 smartscan collect "WDC"
 smartscan collect --verbose
+smartscan collect --llm all           # force LLM analysis on every disk
+smartscan collect --llm summary       # batch LLM analysis across all disks
+smartscan collect --notify            # always send notifications
+smartscan collect --no-save           # display only, skip database
 
 smartscan query --since 2024-01-01
 smartscan query --last-days 7 --verbose
+smartscan query --no-compact          # show all raw records (skip deduplication)
+smartscan query --compact-window 15   # custom deduplication window (minutes)
+smartscan query --trend               # LLM trend analysis on compacted results
+
+smartscan prune                       # remove unchanged records (30min window)
+smartscan prune --dry-run             # preview what would be deleted
+smartscan prune --window 60 --force   # 60min window, skip confirmation
 
 smartscan --json collect
 smartscan --json query --since 2024-01-01
@@ -97,7 +110,7 @@ See **[Configuration Reference](configuration.md)** for the full config file wit
 
 To force LLM analysis on healthy disks (no threshold alerts), use:
 
-    sudo smartscan collect --force-llm
+    sudo smartscan collect --llm all
 
 ## Shell completion
 

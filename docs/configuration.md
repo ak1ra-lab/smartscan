@@ -21,6 +21,9 @@ db_path = "/var/lib/smartscan/smartscan.db"
 # Custom log file path
 log_file = "/var/log/smartscan/smartscan.log"
 
+# Log level: "DEBUG", "INFO", "WARNING", or "ERROR"
+log_level = "WARNING"
+
 # Regex patterns to exclude disk devices by symlink name or resolved path.
 # Applies to both `collect` and `lsblk` subcommands.
 # Useful for filtering out optical drives, loop devices, ZFS zvols, etc.
@@ -42,6 +45,17 @@ no_save = false
 
 # Show only records from the last N days (overrides `since`)
 # last_days = 7
+
+# Enable automatic deduplication of unchanged records (default: true)
+compact_enabled = true
+
+# Time window in minutes for change-detection compaction (default: 30)
+compact_window_minutes = 30
+
+# ── prune ─────────────────────────────────────────────────────
+[prune]
+# Time window in minutes for redundancy detection (default: 30)
+window_minutes = 30
 
 # ── lsblk ────────────────────────────────────────────────────
 [lsblk]
@@ -114,6 +128,9 @@ temperature = 0.3
 # Seconds to wait between LLM calls when processing multiple disks (avoids rate limits)
 delay = 0.0
 
+# Language for LLM responses. Set to "zh" for Chinese (简体中文); null/omitted for English.
+# lang = "zh"
+
 # System prompt sent as the first message to guide the model's behaviour
 system_prompt = """\
 You are a hard drive health diagnostic expert analyzing SMART data.
@@ -131,10 +148,47 @@ Additionally, check the self-test log for the most recent long (extended)
 self-test and compare its lifetime hours against the drive's total power-on
 hours. If a significant portion of the drive's lifetime has passed since the
 last long self-test, recommend running one."""
+
+# System prompt for batch (summary) LLM analysis across all disks
+batch_system_prompt = """\
+You are a hard drive health diagnostic expert analyzing SMART data from multiple disk devices.
+Provide a comprehensive assessment:
+
+1. Overall health status for each disk (HEALTHY / WARNING / CRITICAL)
+2. Key concerns with specific metric values (if any)
+3. Any patterns or correlations across all disks (e.g. shared backplane issues)
+4. Prioritised recommended actions
+
+Be factual and conservative. Do not cause unnecessary alarm for borderline values.
+If all metrics are within normal ranges, state each drive is healthy.
+If you cannot make a definitive assessment for a given drive, say so honestly.
+
+Additionally, check each drive's self-test log for the most recent long (extended)
+self-test and compare its lifetime hours against the drive's total power-on
+hours. If a significant portion of the lifetime has passed since the
+last long self-test, recommend running one."""
+
+# ── Notification channels ──────────────────────────────────────
+[notify]
+
+[notify.telegram]
+enabled = false
+bot_token = ""
+chat_id = ""
+
+[notify.dingtalk]
+enabled = false
+webhook_url = ""
+secret = ""
+
+[notify.feishu]
+enabled = false
+webhook_url = ""
+secret = ""
 ```
 
 To force LLM analysis on healthy disks (no threshold alerts), use:
 
-    sudo smartscan collect --force-llm
+    sudo smartscan collect --llm all
 
 See [LLM Examples](llm-examples.md) for provider-specific configuration snippets.
