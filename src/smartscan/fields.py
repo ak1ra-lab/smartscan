@@ -29,6 +29,7 @@ class FieldDef:
     format_label: str | None = None
     prompt_label: str | None = None
     prompt_section: PromptSection = None
+    is_time_series: bool = False
 
 
 def get_field(fields: SmartInfo, key: str) -> Any:
@@ -120,6 +121,7 @@ _FIELDS: tuple[FieldDef, ...] = (
         format_label="{value} hours",
         prompt_label="Power On Time",
         prompt_section="basic",
+        is_time_series=True,
     ),
     FieldDef(
         key="temperature",
@@ -229,6 +231,7 @@ _FIELDS: tuple[FieldDef, ...] = (
         default="0",
         prompt_label="Power-Off Retract Count",
         prompt_section="secondary",
+        is_time_series=True,
     ),
     FieldDef(
         key="load_cycle_count",
@@ -239,6 +242,7 @@ _FIELDS: tuple[FieldDef, ...] = (
         default="0",
         prompt_label="Load Cycle Count",
         prompt_section="secondary",
+        is_time_series=True,
     ),
     FieldDef(
         key="helium_level",
@@ -258,6 +262,7 @@ _FIELDS: tuple[FieldDef, ...] = (
         section="extended",
         prompt_label="Power Cycles",
         prompt_section="basic",
+        is_time_series=True,
     ),
     FieldDef(
         key="interface_speed",
@@ -281,6 +286,27 @@ CRITICAL_PROMPT_FIELDS = tuple(
 )
 SECONDARY_PROMPT_FIELDS = tuple(
     f for f in _PROMPT_FIELDS if f.prompt_section == "secondary"
+)
+
+TIME_SERIES_FIELDS: frozenset[str] = frozenset(
+    f.key for f in _FIELDS if f.is_time_series
+)
+
+MONITORED_FIELDS: frozenset[str] = frozenset(
+    {
+        "smart_status",
+        "temperature",
+        "reallocated_sector_ct",
+        "current_pending_sector",
+        "offline_uncorrectable",
+        "reallocated_event_count",
+        "ata_smart_error_log",
+        "self_test_status",
+        "udma_crc_error_count",
+        "raw_read_error_rate",
+        "spin_retry_count",
+        "helium_level",
+    }
 )
 
 

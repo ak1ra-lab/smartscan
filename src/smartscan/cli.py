@@ -10,7 +10,7 @@ import sys
 
 import argcomplete
 
-from .commands import do_collect, do_lsblk, do_query
+from .commands import do_collect, do_lsblk, do_prune, do_query
 from .config import load_config
 from .constants import DEFAULT_DB_PATH, DEFAULT_LOG_FILE
 from .exceptions import SmartScanError
@@ -140,6 +140,54 @@ def _build_parser(config: SmartScanConfig | None = None) -> argparse.ArgumentPar
         action="store_true",
         help="Show extended fields in terminal output",
     )
+    query_parser.add_argument(
+        "--no-compact",
+        action="store_true",
+        default=not cfg.query.compact_enabled,
+        help="Disable record deduplication (show all raw records)",
+    )
+    query_parser.add_argument(
+        "--compact-window",
+        type=int,
+        default=cfg.query.compact_window_minutes,
+        metavar="MINUTES",
+        help="Time window in minutes for change-detection compaction (default: 30)",
+    )
+    query_parser.add_argument(
+        "--trend",
+        action="store_true",
+        help="Request LLM trend analysis for compacted records "
+        "(requires configured LLM)",
+    )
+
+    prune_parser = sub.add_parser(
+        "prune", help="Remove redundant records with no significant SMART changes"
+    )
+    prune_parser.add_argument(
+        "pattern",
+        nargs="?",
+        default=".*",
+        help="Regex pattern to filter disk_name",
+    )
+    prune_parser.add_argument(
+        "--window",
+        dest="prune_window",
+        type=int,
+        default=cfg.prune.window_minutes,
+        metavar="MINUTES",
+        help="Time window in minutes for redundancy detection (default: 30)",
+    )
+    prune_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Show which records would be deleted without modifying the database",
+    )
+    prune_parser.add_argument(
+        "--force",
+        "-f",
+        action="store_true",
+        help="Skip confirmation prompt before deleting records",
+    )
 
     lsblk_parser = sub.add_parser(
         "lsblk",
@@ -187,10 +235,13 @@ def main() -> None:
         args.notify_config = config.notify
         args.collect_config = config.collect
         args.query_config = config.query
+        args.prune_config = config.prune
         args.lsblk_config = config.lsblk
 
         if args.command == "query":
             do_query(args)
+        elif args.command == "prune":
+            do_prune(args)
         elif args.command == "lsblk":
             do_lsblk(args)
         else:

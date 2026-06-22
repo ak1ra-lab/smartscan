@@ -77,6 +77,12 @@ class QueryConfig(BaseModel):
     since: str | None = None
     until: str | None = None
     last_days: int | None = None
+    compact_enabled: bool = True
+    compact_window_minutes: int = 30
+
+
+class PruneConfig(BaseModel):
+    window_minutes: int = 30
 
 
 class LsblkConfig(BaseModel):
@@ -115,6 +121,7 @@ class SmartScanConfig(BaseModel):
     exclude_patterns: list[str] = Field(default_factory=list)
     collect: CollectConfig = Field(default_factory=CollectConfig)
     query: QueryConfig = Field(default_factory=QueryConfig)
+    prune: PruneConfig = Field(default_factory=PruneConfig)
     lsblk: LsblkConfig = Field(default_factory=LsblkConfig)
     thresholds: ThresholdRules = Field(default_factory=ThresholdRules)
     llm: LLMConfig = Field(default_factory=LLMConfig)

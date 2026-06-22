@@ -194,3 +194,75 @@ def test_query_with_last_days() -> None:
     args = parser.parse_args(["query", "--last-days", "7"])
     assert args.command == "query"
     assert args.last_days == 7
+
+
+def test_prune_subcommand_basic() -> None:
+    parser = create_parser()
+    args = parser.parse_args(["prune"])
+    assert args.command == "prune"
+    assert args.pattern == ".*"
+    assert args.prune_window == 30
+    assert args.dry_run is False
+    assert args.force is False
+
+
+def test_prune_with_pattern() -> None:
+    parser = create_parser()
+    args = parser.parse_args(["prune", "WDC"])
+    assert args.command == "prune"
+    assert args.pattern == "WDC"
+
+
+def test_prune_with_window() -> None:
+    parser = create_parser()
+    args = parser.parse_args(["prune", "--window", "60"])
+    assert args.command == "prune"
+    assert args.prune_window == 60
+
+
+def test_prune_dry_run() -> None:
+    parser = create_parser()
+    args = parser.parse_args(["prune", "--dry-run"])
+    assert args.command == "prune"
+    assert args.dry_run is True
+
+
+def test_prune_force() -> None:
+    parser = create_parser()
+    args = parser.parse_args(["prune", "--force"])
+    assert args.command == "prune"
+    assert args.force is True
+
+
+def test_prune_short_flag() -> None:
+    parser = create_parser()
+    args = parser.parse_args(["prune", "-f"])
+    assert args.command == "prune"
+    assert args.force is True
+
+
+def test_query_no_compact_flag() -> None:
+    parser = create_parser()
+    args = parser.parse_args(["query", "--no-compact"])
+    assert args.command == "query"
+    assert args.no_compact is True
+
+
+def test_query_compact_window_flag() -> None:
+    parser = create_parser()
+    args = parser.parse_args(["query", "--compact-window", "15"])
+    assert args.command == "query"
+    assert args.compact_window == 15
+
+
+def test_query_trend_flag() -> None:
+    parser = create_parser()
+    args = parser.parse_args(["query", "--trend"])
+    assert args.command == "query"
+    assert args.trend is True
+
+
+def test_query_default_compact_enabled() -> None:
+    parser = create_parser()
+    args = parser.parse_args(["query"])
+    assert args.no_compact is False

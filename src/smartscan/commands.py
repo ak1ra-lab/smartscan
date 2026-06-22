@@ -12,10 +12,13 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from .database import init_db, open_db, parse_date, query_smart_info, save_to_db
+from .dedup import compact_rows, find_redundant_ids
 from .exceptions import DiskNotFoundError
-from .llm import call_llm, call_llm_batch
+from .llm import call_llm, call_llm_batch, call_llm_trend
+from .models import SmartInfo
 from .notifications import send_notifications
 from .output import (
+    console,
     print_json_output,
     print_llm_analysis,
     print_lsblk_json,
@@ -292,12 +295,16 @@ def do_query(args: Namespace) -> None:
 
     until_str = args.until or args.query_config.until
 
+    compact_enabled = not args.no_compact
+
     logging.debug(
-        "query: pattern=%r last_days=%s since=%s until=%s",
+        "query: pattern=%r last_days=%s since=%s until=%s compact=%s window=%s",
         args.pattern,
         last_days,
         since_str,
         until_str,
+        compact_enabled,
+        args.compact_window,
     )
 
     since = parse_date(since_str) if since_str else None
@@ -315,6 +322,41 @@ def do_query(args: Namespace) -> None:
         sys.exit(1)
 
     logging.info("Query returned %d record(s)", len(rows))
+
+    if compact_enabled and rows:
+        groups: dict[str, list[sqlite3.Row]] = {}
+        for row in rows:
+            groups.setdefault(row["disk_path"], []).append(row)
+        compacted: list[sqlite3.Row] = []
+        for disk_rows in groups.values():
+            disk_rows.sort(key=lambda r: r["timestamp"])
+            compacted.extend(compact_rows(disk_rows, args.compact_window))
+        compacted.sort(key=lambda r: (r["disk_path"], r["timestamp"]))
+        logging.info("Compacted %d -> %d record(s)", len(rows), len(compacted))
+        rows = compacted
+
+    if args.trend and rows and args.llm_config.enabled:
+        trend_groups: dict[str, list[tuple[str, SmartInfo]]] = {}
+        disk_name_map: dict[str, str] = {}
+        for row in rows:
+            disk_path = row["disk_path"]
+            trend_groups.setdefault(disk_path, []).append(
+                (row["timestamp"], row_to_fields(row))
+            )
+            disk_name_map.setdefault(disk_path, row["disk_name"])
+        for disk_path, entries in trend_groups.items():
+            if len(entries) < 2:
+                continue
+            disk_name = disk_name_map[disk_path]
+            logging.info(
+                "Requesting trend analysis for %s (%d entries)",
+                disk_name,
+                len(entries),
+            )
+            analysis = call_llm_trend(disk_name, disk_path, entries, args.llm_config)
+            if analysis and not args.json:
+                console.rule(f"[bold]Trend Analysis: {disk_name} ({disk_path})[/bold]")
+                print_llm_analysis(analysis)
 
     for row in rows:
         fields = row_to_fields(row)
@@ -341,5 +383,80 @@ def do_query(args: Namespace) -> None:
                 alerts=alerts,
                 verbose=args.verbose,
             )
+
+    conn.close()
+
+
+def do_prune(args: Namespace) -> None:
+    window = args.prune_window
+    logging.debug(
+        "prune: pattern=%r window=%dmin force=%s dry_run=%s",
+        args.pattern,
+        window,
+        args.force,
+        args.dry_run,
+    )
+
+    from pathlib import Path
+
+    db_path = Path(args.db_path).expanduser()
+    if not db_path.is_file():
+        print(f"Error: Database not found at {args.db_path}", file=sys.stderr)
+        sys.exit(1)
+
+    conn = init_db(args.db_path)
+
+    redundant_ids: list[int] = []
+    try:
+        redundant_ids = find_redundant_ids(conn, args.pattern, window)
+    except sqlite3.OperationalError as exc:
+        print(f"Error: Prune analysis failed: {exc}", file=sys.stderr)
+        conn.close()
+        sys.exit(1)
+
+    if not redundant_ids:
+        print("No redundant records found to prune.")
+        conn.close()
+        return
+
+    print(
+        f"Found {len(redundant_ids)} redundant record(s) "
+        f"(window={window}min, pattern={args.pattern!r})."
+    )
+
+    if args.dry_run:
+        conn.close()
+        return
+
+    if not args.force:
+        try:
+            answer = input("Delete these records? [y/N] ")
+        except (EOFError, KeyboardInterrupt):
+            print()
+            conn.close()
+            return
+        if answer.strip().lower() not in ("y", "yes"):
+            print("Prune cancelled.")
+            conn.close()
+            return
+
+    try:
+        _CHUNK = 500
+        deleted = 0
+        for i in range(0, len(redundant_ids), _CHUNK):
+            chunk = redundant_ids[i : i + _CHUNK]
+            placeholders = ", ".join("?" * len(chunk))
+            conn.execute(
+                f"DELETE FROM smart_info WHERE id IN ({placeholders})",
+                chunk,
+            )
+            deleted += len(chunk)
+        conn.commit()
+        logging.info("Pruned %d redundant record(s)", deleted)
+        print(f"Pruned {deleted} redundant record(s).")
+    except sqlite3.OperationalError as exc:
+        print(f"Error: Prune failed: {exc}", file=sys.stderr)
+        conn.close()
+        sys.exit(1)
 
     conn.close()

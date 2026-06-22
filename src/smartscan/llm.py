@@ -360,3 +360,95 @@ def call_llm_batch(
     except (KeyError, IndexError, TypeError, ValueError) as exc:
         logging.error("Unexpected LLM API response format: %s", exc)
         return None
+
+
+def _build_trend_prompt(
+    disk_name: str,
+    disk_path: str,
+    entries: list[tuple[str, SmartInfo]],
+) -> str:
+    from .fields import MONITORED_FIELDS, TIME_SERIES_FIELDS
+
+    lines = [
+        f"SMART Trend Data for Disk: {disk_name}",
+        f"  Path: {disk_path}",
+        "",
+        f"  {len(entries)} historical records (compacted for significant changes only):",
+        "",
+    ]
+
+    identity_keys = ("model_name", "model_family", "serial_number", "user_capacity_gib")
+    if entries:
+        first = entries[0][1]
+        for key in identity_keys:
+            val = first.get(key, "N/A")
+            if val and str(val) != "N/A":
+                lines.append(f"  {key}: {val}")
+        lines.append("")
+
+    lines.append("  Time-series of monitored health attributes:")
+    lines.append(
+        f"  {'Timestamp':<22}" + "  ".join(f"{k:<14}" for k in sorted(MONITORED_FIELDS))
+    )
+    lines.append("  " + "-" * (22 + 18 * len(MONITORED_FIELDS)))
+
+    for ts, fields in entries:
+        vals = [str(fields.get(k, "N/A")) for k in sorted(MONITORED_FIELDS)]
+        lines.append(f"  {ts:<22}" + "  ".join(f"{v:<14}" for v in vals))
+
+    lines.extend(
+        [
+            "",
+            "Contextual counters (not used for change detection):",
+        ]
+    )
+    for key in sorted(TIME_SERIES_FIELDS):
+        all_vals = []
+        for ts, fields in entries:
+            all_vals.append(f"{ts}: {fields.get(key, 'N/A')}")
+        lines.append(f"  {key}: " + ", ".join(all_vals[-3:]))
+
+    lines.extend(
+        [
+            "",
+            "Analyze the trend of the monitored health attributes over time.",
+            "Identify any concerning patterns (e.g. steady increase in reallocated sectors,",
+            "temperature trending upward, increasing error rates).",
+            "If all metrics are stable, state that the drive health is stable.",
+            "Be factual and conservative. Do not cause unnecessary alarm for normal fluctuations.",
+        ]
+    )
+
+    return "\n".join(lines)
+
+
+def call_llm_trend(
+    disk_name: str,
+    disk_path: str,
+    entries: list[tuple[str, SmartInfo]],
+    config: LLMConfig,
+) -> str | None:
+    """Submit trend-analysis data for one disk to the LLM.
+
+    Returns the LLM's analysis text, or ``None`` on any failure.
+    """
+    logging.debug(
+        "Calling trend LLM for %s with %d data points (provider=%s model=%s)",
+        disk_name,
+        len(entries),
+        config.provider,
+        config.model,
+    )
+    provider = _get_provider(config)
+    provider.check_url_mismatch()
+    user_prompt = _build_trend_prompt(disk_name, disk_path, entries)
+    body = provider.build_body(user_prompt)
+    headers = provider.build_headers()
+    data = _do_request(config.api_url, headers, body, config.timeout)
+    if data is None:
+        return None
+    try:
+        return provider.parse_response(data)
+    except (KeyError, IndexError, TypeError, ValueError) as exc:
+        logging.error("Unexpected LLM API response format: %s", exc)
+        return None
