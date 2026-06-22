@@ -82,9 +82,19 @@ def _build_parser(config: SmartScanConfig | None = None) -> argparse.ArgumentPar
         help="Skip saving SMART data to database",
     )
     collect_parser.add_argument(
-        "--force-llm",
+        "--llm",
+        choices=["all", "summary", "off"],
+        default=None,
+        help="LLM analysis mode: 'all' forces per-disk analysis on every disk, "
+        "'summary' submits all results as a single batch, "
+        "'off' skips LLM entirely "
+        "(default: config-driven, per-disk analysis only for disks with alerts)",
+    )
+    collect_parser.add_argument(
+        "--notify",
         action="store_true",
-        help="Force LLM analysis on all disks, bypassing both config and threshold checks",
+        help="Force sending notifications via configured channels, "
+        "even when no alerts are triggered",
     )
     collect_parser.add_argument(
         "-v",
@@ -166,6 +176,7 @@ def main() -> None:
         args.thresholds_enabled = config.thresholds.enabled
         args.threshold_rules = config.thresholds
         args.llm_config = config.llm
+        args.notify_config = config.notify
         args.collect_config = config.collect
         args.query_config = config.query
         args.lsblk_config = config.lsblk

@@ -8,6 +8,8 @@ import logging
 import os
 from typing import Any
 
+import httpx2
+
 from .fields import (
     BASIC_PROMPT_FIELDS,
     CRITICAL_PROMPT_FIELDS,
@@ -71,8 +73,6 @@ def _do_request(
 
     Returns ``None`` on any failure after logging the error.
     """
-    import httpx2
-
     try:
         response = httpx2.post(url, headers=headers, json=body, timeout=timeout)
         response.raise_for_status()
@@ -267,3 +267,89 @@ def call_llm(
     return _get_provider(config).call(
         fields, alerts_text, raw_data=raw_data, returncode=returncode
     )
+
+
+def _build_batch_prompt(
+    entries: list[
+        tuple[str, str, SmartInfo, list[Any], dict[str, Any] | None, int, str | None]
+    ],
+) -> str:
+    lines = [
+        f"SMART data from {len(entries)} disk devices is provided below.",
+        "",
+    ]
+
+    for disk_name, disk_path, fields, alerts, _raw_data, rc, _llm_analysis in entries:
+        model = fields.get("model_name", "N/A")
+        lines.append(f"## Disk: {disk_name} ({model})")
+        lines.append(f"  Path: {disk_path}")
+        lines.append("")
+
+        for f in BASIC_PROMPT_FIELDS:
+            value = get_field(fields, f.key)
+            label = f.prompt_label or f.key
+            if f.key == "user_capacity_gib" and value is None:
+                lines.append(f"    {label}:      N/A")
+            elif f.format_label:
+                lines.append(f"    {label}: {f.format_label.format(value=value)}")
+            else:
+                lines.append(f"    {label}: {value}")
+
+        lines.append("")
+        lines.append("    Critical Attributes:")
+        for f in CRITICAL_PROMPT_FIELDS:
+            lines.append(
+                f"      {f.prompt_label or f.key}:     {get_field(fields, f.key)}"
+            )
+
+        lines.append("")
+        lines.append("    Secondary Attributes:")
+        for f in SECONDARY_PROMPT_FIELDS:
+            lines.append(
+                f"      {f.prompt_label or f.key}:         {get_field(fields, f.key)}"
+            )
+
+        lines.append("")
+        if alerts:
+            lines.append("    Alerts:")
+            for a in alerts:
+                lines.append(f"      - {a.message}")
+        else:
+            lines.append("    Alerts: (none)")
+
+        if rc is not None and rc != 0:
+            lines.append("")
+            lines.append("    smartctl errors:")
+            lines.extend(f"      {line}" for line in smartctl_error_lines(rc))
+
+        lines.append("")
+
+    return "\n".join(lines)
+
+
+def call_llm_batch(
+    entries: list[
+        tuple[str, str, SmartInfo, list[Any], dict[str, Any] | None, int, str | None]
+    ],
+    config: LLMConfig,
+) -> str | None:
+    """Submit all disk results as a single batch to the LLM.
+
+    Returns the LLM's analysis text, or ``None`` on any failure.
+    """
+    batch_config = config.model_copy(
+        update={"system_prompt": config.batch_system_prompt}
+    )
+    provider = _get_provider(batch_config)
+    provider.check_url_mismatch()
+    user_prompt = _build_batch_prompt(entries)
+    body = provider.build_body(user_prompt)
+    headers = provider.build_headers()
+    data = _do_request(config.api_url, headers, body, config.timeout)
+    if data is None:
+        return None
+    try:
+        return provider.parse_response(data)
+    except (KeyError, IndexError, TypeError, ValueError) as exc:
+        logging.error("Unexpected LLM API response format: %s", exc)
+        return None

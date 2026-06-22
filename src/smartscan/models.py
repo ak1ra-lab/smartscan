@@ -6,7 +6,12 @@ from typing import Literal, TypedDict
 
 from pydantic import BaseModel, Field
 
-from .constants import DEFAULT_DB_PATH, DEFAULT_LOG_FILE, DEFAULT_SYSTEM_PROMPT
+from .constants import (
+    DEFAULT_BATCH_SYSTEM_PROMPT,
+    DEFAULT_DB_PATH,
+    DEFAULT_LOG_FILE,
+    DEFAULT_SYSTEM_PROMPT,
+)
 
 
 class SmartInfo(TypedDict):
@@ -61,6 +66,7 @@ class LLMConfig(BaseModel):
     temperature: float = 0.3
     delay: float = 0.0
     system_prompt: str = DEFAULT_SYSTEM_PROMPT
+    batch_system_prompt: str = DEFAULT_BATCH_SYSTEM_PROMPT
 
 
 class CollectConfig(BaseModel):
