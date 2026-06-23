@@ -216,6 +216,10 @@ def _build_parser(config: SmartScanConfig | None = None) -> argparse.ArgumentPar
 def main() -> None:
     """Entry point: load config, parse args, and dispatch to the appropriate subcommand."""
     try:
+        # Bootstrap with silent logging — the real file handler is
+        # attached after config is loaded and arguments are parsed.
+        setup_logging()
+
         pre_parser = argparse.ArgumentParser(add_help=False)
         pre_parser.add_argument("--config", default=None)
         pre_args, remaining = pre_parser.parse_known_args()
@@ -225,7 +229,10 @@ def main() -> None:
         parser = _build_parser(config)
         args = parser.parse_args(remaining)
 
-        setup_logging(args.log_file, log_level=args.log_level or config.log_level)
+        setup_logging(
+            log_file=args.log_file or config.log_file,
+            log_level=args.log_level or config.log_level,
+        )
 
         logging.debug("dispatching command: %s", args.command)
 

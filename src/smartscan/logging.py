@@ -11,10 +11,13 @@ def setup_logging(log_file: str | None = None, log_level: str = "WARNING") -> No
 
     No stderr handler is attached — logging output does not compete with
     CLI console output (Rich tables, JSON lines, etc.).
+
+    Replaces any previously attached handler, so it is safe to call more
+    than once (e.g. to reconfigure after loading a config file).
     """
     root = logging.getLogger()
-    if root.handlers:
-        return
+    for handler in list(root.handlers):
+        root.removeHandler(handler)
 
     root.setLevel(logging.DEBUG)
 
@@ -40,3 +43,4 @@ def _add_file_handler(root: logging.Logger, log_file: str, log_level: str) -> No
         root.addHandler(fh)
     except OSError as exc:
         print(f"Cannot create log file {log_file}: {exc}", flush=True)
+        root.addHandler(logging.NullHandler())
