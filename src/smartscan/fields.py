@@ -36,6 +36,24 @@ def get_field(fields: SmartInfo, key: str) -> Any:
     return fields[key]  # ty: ignore[invalid-key]
 
 
+def get_field_def(key: str) -> FieldDef | None:
+    """Look up a :class:`FieldDef` by its *key* name, or return ``None``."""
+    for f in _FIELDS:
+        if f.key == key:
+            return f
+    return None
+
+
+def rotation_display(rotation_rate: str) -> str:
+    """Return a human-readable rotation rate string.
+
+    ``"7200"`` → ``"7200 rpm"``, ``"0"`` → ``"SSD (no rotation)"``.
+    """
+    if rotation_rate and rotation_rate not in ("N/A", "0"):
+        return f"{rotation_rate} rpm"
+    return "SSD (no rotation)"
+
+
 _FIELDS: tuple[FieldDef, ...] = (
     FieldDef(
         key="user_capacity_bytes",

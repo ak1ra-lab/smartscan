@@ -11,31 +11,24 @@ from typing import Any
 
 from .constants import SMARTCTL_ERROR_MSGS
 from .exceptions import DiskNotFoundError, SmartctlError
+from .fields import rotation_display
 from .models import SmartInfo
-
-_SYS_BLOCK = Path("/sys/class/block")
-_PARTITION_NAME_RE = re.compile(
-    r"^(?:sd[a-z]+\d+|hd[a-z]+\d+|vd[a-z]+\d+|xvd[a-z]+\d+"
-    r"|nvme\d+n\d+p\d+"
-    r"|mmcblk\d+p\d+"
-    r"|loop\d+p\d+)"
-    r"$"
+from .utils import (
+    compile_exclude_patterns,
+    get_disk_info,
+    is_excluded,
+    is_whole_disk,
+    safe_get,
 )
 
 _SOURCE_DIRS = ("by-id", "by-path", "by-diskseq")
-_SECTOR_BYTES = 512
 
 
-def safe_get(data: dict[str, Any] | Any, *keys: str, default: Any = "N/A") -> Any:
-    """Safely traverse nested dicts returning a default for missing or empty values."""
-    for key in keys:
-        if isinstance(data, dict):
-            data = data.get(key)
-        else:
-            return default
-    if data is None or data == "" or data == "null":
-        return default
-    return data
+def _compile_excludes(patterns: list[str] | None) -> list[re.Pattern[str]]:
+    try:
+        return compile_exclude_patterns(patterns)
+    except ValueError as exc:
+        raise DiskNotFoundError(str(exc)) from exc
 
 
 def find_in_table(
@@ -92,26 +85,6 @@ def check_smartctl_error(returncode: int | None) -> None:
         logging.error("  %s", line)
 
 
-def _compile_exclude_patterns(
-    exclude_patterns: list[str] | None,
-) -> list[re.Pattern[str]]:
-    if not exclude_patterns:
-        return []
-    compiled: list[re.Pattern[str]] = []
-    for ep in exclude_patterns:
-        try:
-            compiled.append(re.compile(ep))
-        except re.error as exc:
-            raise DiskNotFoundError(f"Invalid exclude regex pattern: {exc}") from exc
-    return compiled
-
-
-def _is_excluded(
-    name: str, target: str, exclude_compiled: list[re.Pattern[str]]
-) -> bool:
-    return any(exc.search(name) or exc.search(target) for exc in exclude_compiled)
-
-
 def find_disks(pattern: str, exclude_patterns: list[str] | None = None) -> list[Path]:
     """Discover ATA and NVMe disk devices under ``/dev/disk/by-id/`` matching a regex pattern.
 
@@ -134,7 +107,7 @@ def find_disks(pattern: str, exclude_patterns: list[str] | None = None) -> list[
     except re.error as exc:
         raise DiskNotFoundError(f"Invalid regex pattern: {exc}") from exc
 
-    exclude_compiled = _compile_exclude_patterns(exclude_patterns)
+    exclude_compiled = _compile_excludes(exclude_patterns)
 
     disks: list[Path] = []
     by_target: dict[Path, Path] = {}
@@ -150,7 +123,7 @@ def find_disks(pattern: str, exclude_patterns: list[str] | None = None) -> list[
         if not compiled.search(name):
             continue
         target = entry.resolve()
-        if exclude_compiled and _is_excluded(name, str(target), exclude_compiled):
+        if exclude_compiled and is_excluded(name, str(target), exclude_compiled):
             continue
         if target in by_target:
             existing_name = by_target[target].name
@@ -234,7 +207,7 @@ def _extract_nvme_health(data: dict[str, Any]) -> SmartInfo:
         user_capacity_bytes=_parse_capacity_bytes(data),
         user_capacity_gib=_parse_capacity_gib(data),
         rotation_rate=str(safe_get(data, "rotation_rate")),
-        rotation_rate_display=_rotation_display(data),
+        rotation_rate_display=rotation_display(str(safe_get(data, "rotation_rate"))),
         interface_speed=str(safe_get(data, "interface_speed", "current", "string")),
         power_on_time=str(safe_get(log, "power_on_hours", default="N/A")),
         power_cycle_count=str(safe_get(log, "power_cycles", default="N/A")),
@@ -267,7 +240,7 @@ def _extract_ata_health(data: dict[str, Any]) -> SmartInfo:
         user_capacity_bytes=_parse_capacity_bytes(data),
         user_capacity_gib=_parse_capacity_gib(data),
         rotation_rate=str(safe_get(data, "rotation_rate")),
-        rotation_rate_display=_rotation_display(data),
+        rotation_rate_display=rotation_display(str(safe_get(data, "rotation_rate"))),
         interface_speed=str(safe_get(data, "interface_speed", "current", "string")),
         power_on_time=str(safe_get(data, "power_on_time", "hours")),
         power_cycle_count=str(safe_get(data, "power_cycle_count")),
@@ -305,13 +278,6 @@ def _parse_capacity_gib(data: dict[str, Any]) -> float | None:
     return round(uc_bytes / (2**30), 2) if uc_bytes > 0 else None
 
 
-def _rotation_display(data: dict[str, Any]) -> str:
-    rotation_rate = str(safe_get(data, "rotation_rate"))
-    if rotation_rate not in ("N/A", "0"):
-        return f"{rotation_rate} rpm"
-    return "SSD (no rotation)"
-
-
 def extract_fields(data: dict[str, Any]) -> SmartInfo:
     """Extract key SMART health metrics from raw smartctl JSON output into a typed dict."""
     if "nvme_smart_health_information_log" in data:
@@ -319,50 +285,6 @@ def extract_fields(data: dict[str, Any]) -> SmartInfo:
         return _extract_nvme_health(data)
     logging.debug("Extracting ATA health fields")
     return _extract_ata_health(data)
-
-
-def _is_whole_disk(dev_path: str | Path) -> bool:
-    name = Path(dev_path).name
-    part_file = _SYS_BLOCK / name / "partition"
-    try:
-        return part_file.read_text().strip() == "0"
-    except (OSError, FileNotFoundError):
-        return not bool(_PARTITION_NAME_RE.match(name))
-
-
-def _format_size(size_bytes: int) -> str:
-    if size_bytes <= 0:
-        return "N/A"
-    units = ("B", "KiB", "MiB", "GiB", "TiB", "PiB")
-    value = float(size_bytes)
-    for unit in units:
-        if abs(value) < 1024.0:
-            return f"{value:.1f} {unit}" if unit != "B" else f"{int(value)} B"
-        value /= 1024.0
-    return f"{value:.1f} PiB"
-
-
-def _get_disk_info(dev_path: str) -> tuple[str, str, int]:
-    name = Path(dev_path).name
-    sys_dir = _SYS_BLOCK / name
-
-    model = "N/A"
-    model_file = sys_dir / "device" / "model"
-    try:
-        model = model_file.read_text().strip()
-    except (OSError, FileNotFoundError):
-        pass
-
-    size_bytes = 0
-    size_file = sys_dir / "size"
-    try:
-        sectors = int(size_file.read_text().strip())
-        size_bytes = sectors * _SECTOR_BYTES
-    except (OSError, FileNotFoundError, ValueError):
-        pass
-
-    size_human = _format_size(size_bytes)
-    return model, size_human, size_bytes
 
 
 def build_device_tree(
@@ -397,7 +319,7 @@ def build_device_tree(
     except re.error as exc:
         raise DiskNotFoundError(f"Invalid regex pattern: {exc}") from exc
 
-    exclude_compiled = _compile_exclude_patterns(exclude_patterns)
+    exclude_compiled = _compile_excludes(exclude_patterns)
 
     _part_re = re.compile(r"-part\d+$")
     seen_devices: dict[str, dict[str, list[str]]] = {}
@@ -418,10 +340,10 @@ def build_device_tree(
             if not compiled.search(name):
                 continue
             target = str(entry.resolve())
-            if exclude_compiled and _is_excluded(name, target, exclude_compiled):
+            if exclude_compiled and is_excluded(name, target, exclude_compiled):
                 excluded_targets.add(target)
                 continue
-            if not _is_whole_disk(target):
+            if not is_whole_disk(target):
                 continue
             full_path = str(entry)
             seen_devices.setdefault(target, {}).setdefault(source, []).append(full_path)
@@ -439,7 +361,7 @@ def build_device_tree(
 
     result: list[dict[str, object]] = []
     for device in sorted(seen_devices):
-        model, size_human, size_bytes = _get_disk_info(device)
+        model, size_human, size_bytes = get_disk_info(device)
         result.append(
             {
                 "device": device,

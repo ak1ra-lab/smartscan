@@ -3,27 +3,13 @@
 from __future__ import annotations
 
 import logging
-import os
-import re
 import tomllib
 from pathlib import Path
-from typing import Any
 
 from pydantic import ValidationError
 
 from .models import SmartScanConfig
-
-_ENV_VAR_RE = re.compile(r"\$\{(\w+)\}")
-
-
-def _expand_env_vars(obj: Any) -> Any:
-    if isinstance(obj, dict):
-        return {k: _expand_env_vars(v) for k, v in obj.items()}
-    if isinstance(obj, list):
-        return [_expand_env_vars(v) for v in obj]
-    if isinstance(obj, str):
-        return _ENV_VAR_RE.sub(lambda m: os.environ.get(m.group(1), ""), obj)
-    return obj
+from .utils import expand_env_vars
 
 
 def load_config(config_path: str | None = None) -> SmartScanConfig:
@@ -63,7 +49,7 @@ def load_config(config_path: str | None = None) -> SmartScanConfig:
         logging.warning("Invalid config file format; expected a TOML table.")
         return SmartScanConfig()
 
-    raw = _expand_env_vars(raw)
+    raw = expand_env_vars(raw)
 
     try:
         return SmartScanConfig.model_validate(raw)

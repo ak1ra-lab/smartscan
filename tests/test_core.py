@@ -510,11 +510,11 @@ class TestBuildDeviceTree:
         with (
             patch("smartscan.smartctl.Path", FakePath),
             patch(
-                "smartscan.smartctl._is_whole_disk",
+                "smartscan.smartctl.is_whole_disk",
                 side_effect=_mock_is_whole_disk,
             ),
             patch(
-                "smartscan.smartctl._get_disk_info",
+                "smartscan.smartctl.get_disk_info",
                 side_effect=_mock_get_disk_info,
             ),
         ):
@@ -580,11 +580,11 @@ class TestBuildDeviceTree:
         with (
             patch("smartscan.smartctl.Path", FakePath),
             patch(
-                "smartscan.smartctl._is_whole_disk",
+                "smartscan.smartctl.is_whole_disk",
                 side_effect=_mock_is_whole_disk,
             ),
             patch(
-                "smartscan.smartctl._get_disk_info",
+                "smartscan.smartctl.get_disk_info",
                 side_effect=_mock_get_disk_info,
             ),
         ):
