@@ -5,6 +5,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-06-26
+
+### Added
+
+- Notification channels: Telegram, DingTalk, and Feishu webhook notifiers for SMART health alerts and LLM analysis
+- `prune` subcommand for removing redundant unchanged records within a time window; supports `--dry-run` and `--force`
+- Query compaction: automatically deduplicate similar records within a 30-minute window; disable with `--no-compact`
+- `query --trend` for LLM-powered trend analysis across historical records
+- `LLMConfig.lang` for localized LLM responses (e.g., `"zh"`)
+- LLM API key resolution from environment variables (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`)
+- Smartctl error bit descriptions included in LLM prompt for better diagnosis of failed runs
+- `log_level` config key and `--log-level` CLI argument for configurable log verbosity
+
+### Changed
+
+- `--force-llm` and `--batch-llm` replaced by `--llm {all,summary,off}` (**breaking**: update CLI invocations)
+- Logging writes to file only; stderr reserved for fatal errors displayed with `print()` (**breaking**: stderr output changed)
+- `DEFAULT_CONFIG_PATH` replaced with `CONFIG_SEARCH_PATHS` searching XDG user dir then system path (**breaking**: config location may differ)
+- Module layout: `llm.py` split into `llm/` package; `notifications.py` into `notifications/` package; generic utilities extracted to `utils.py`
+- `setup_logging()` supports reconfiguration and boots with `NullHandler` before config is loaded
+
+### Fixed
+
+- `smartctl` negative return codes from signal termination handled correctly
+
+## [0.3.1] - 2026-06-14
+
+### Fixed
+
+- Exclude entire device in `build_device_tree` when any symlink entry matches the pattern
+
 ## [0.3.0] - 2026-06-14
 
 ### Added
