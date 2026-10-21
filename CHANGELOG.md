@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.6.0] - 2026-10-21
 
 ### Added
 
@@ -14,7 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Extract ATA pending-defect counts and SATA PHY ICRC/CRC/COMRESET counters
 - Discover and extract SCSI/SAS disks, including grown defects, error counters, start-stop cycles, link rate, and SAS PHY errors
 - Collect the Seagate FARM log when a drive reports support and extract unrecoverable read/write errors, read recovery attempts, CRC errors, head flight/load counters, reset count, and maximum temperature
-- Add `thresholds.endurance_used_percent` (default `90`) and report SSD endurance in tables, JSON, and LLM prompts
+- Add `thresholds.endurance_used_percent` (default `90`) and thresholds for pending defects, SATA PHY, SCSI, and FARM errors
 
 ### Changed
 
@@ -28,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - NVMe interface speed is read from sysfs when smartctl does not report it
 - SATA disks behind a SCSI/SAS HBA are retried with `-d sat` when auto-detection returns no usable SMART data
 - Querying a database created by an older version no longer fails when newer columns are missing
+- `N/A` values no longer render with units in tables and LLM prompts
 
 ## [0.5.0] - 2026-10-21
 
