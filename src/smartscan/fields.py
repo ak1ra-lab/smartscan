@@ -36,14 +36,6 @@ def get_field(fields: SmartInfo, key: str) -> Any:
     return fields[key]  # ty: ignore[invalid-key]
 
 
-def get_field_def(key: str) -> FieldDef | None:
-    """Look up a :class:`FieldDef` by its *key* name, or return ``None``."""
-    for f in _FIELDS:
-        if f.key == key:
-            return f
-    return None
-
-
 def rotation_display(rotation_rate: str) -> str:
     """Return a human-readable rotation rate string.
 
@@ -299,16 +291,10 @@ ALL_HEALTH_FIELDS = tuple(f for f in _FIELDS if f.db_column)
 _PROMPT_FIELDS = tuple(f for f in _FIELDS if f.prompt_section is not None)
 
 BASIC_PROMPT_FIELDS = tuple(f for f in _PROMPT_FIELDS if f.prompt_section == "basic")
-CRITICAL_PROMPT_FIELDS = tuple(
-    f for f in _PROMPT_FIELDS if f.prompt_section == "critical"
-)
-SECONDARY_PROMPT_FIELDS = tuple(
-    f for f in _PROMPT_FIELDS if f.prompt_section == "secondary"
-)
+CRITICAL_PROMPT_FIELDS = tuple(f for f in _PROMPT_FIELDS if f.prompt_section == "critical")
+SECONDARY_PROMPT_FIELDS = tuple(f for f in _PROMPT_FIELDS if f.prompt_section == "secondary")
 
-TIME_SERIES_FIELDS: frozenset[str] = frozenset(
-    f.key for f in _FIELDS if f.is_time_series
-)
+TIME_SERIES_FIELDS: frozenset[str] = frozenset(f.key for f in _FIELDS if f.is_time_series)
 
 MONITORED_FIELDS: frozenset[str] = frozenset(
     {
@@ -326,8 +312,3 @@ MONITORED_FIELDS: frozenset[str] = frozenset(
         "helium_level",
     }
 )
-
-
-def db_columns() -> tuple[str, ...]:
-    """Return the database column names for all persisted health fields."""
-    return tuple(f.db_column for f in ALL_HEALTH_FIELDS)

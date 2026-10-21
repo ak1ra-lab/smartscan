@@ -9,13 +9,13 @@ from conftest import make_fields
 
 from smartscan.database import init_db, save_to_db
 from smartscan.dedup import (
-    MONITORED_FIELDS,
     _field_changed,
+    compact_by_disk,
     compact_rows,
     find_redundant_ids,
     has_significant_change,
 )
-from smartscan.fields import TIME_SERIES_FIELDS
+from smartscan.fields import MONITORED_FIELDS, TIME_SERIES_FIELDS
 
 
 class TestFieldChanged:
@@ -188,6 +188,12 @@ class TestCompactRows:
         assert len(result) == 1
         assert result[0]["id"] == 2
 
+    def test_compact_by_disk_keeps_devices_separate(self) -> None:
+        r1 = self._make_row(1, "/dev/sda", "2024-01-01T00:00:00Z")
+        r2 = self._make_row(2, "/dev/sdb", "2024-01-01T00:10:00Z")
+        result = compact_by_disk([r1, r2], 30)
+        assert [row["id"] for row in result] == [1, 2]
+
 
 class TestFindRedundantIds:
     def test_no_redundant_records(self) -> None:
@@ -217,12 +223,8 @@ class TestFindRedundantIds:
         )
         vals = "'PASSED', '30', '0', '0', '0', '0', '0', '', '0', '0', '0', '0', '0', '0', '{}'"
 
-        conn.execute(
-            f"INSERT INTO smart_info (id, {cols}) VALUES (1, '{ts1}', 'sda', '/dev/sda', {vals})"
-        )
-        conn.execute(
-            f"INSERT INTO smart_info (id, {cols}) VALUES (2, '{ts2}', 'sda', '/dev/sda', {vals})"
-        )
+        conn.execute(f"INSERT INTO smart_info (id, {cols}) VALUES (1, '{ts1}', 'sda', '/dev/sda', {vals})")
+        conn.execute(f"INSERT INTO smart_info (id, {cols}) VALUES (2, '{ts2}', 'sda', '/dev/sda', {vals})")
         conn.commit()
 
         ids = find_redundant_ids(conn, ".*", 30)
@@ -278,22 +280,10 @@ class TestFindRedundantIds:
         )
         vals = "'PASSED', '30', '0', '0', '0', '0', '0', '', '0', '0', '0', '0', '0', '0', '{}'"
 
-        conn.execute(
-            f"INSERT INTO smart_info (id, {cols}) VALUES "
-            f"(1, '{ts1}', 'ata-WDC', '/dev/sda', {vals})"
-        )
-        conn.execute(
-            f"INSERT INTO smart_info (id, {cols}) VALUES "
-            f"(2, '{ts2}', 'ata-WDC', '/dev/sda', {vals})"
-        )
-        conn.execute(
-            f"INSERT INTO smart_info (id, {cols}) VALUES "
-            f"(3, '{ts1}', 'ata-Samsung', '/dev/sdb', {vals})"
-        )
-        conn.execute(
-            f"INSERT INTO smart_info (id, {cols}) VALUES "
-            f"(4, '{ts2}', 'ata-Samsung', '/dev/sdb', {vals})"
-        )
+        conn.execute(f"INSERT INTO smart_info (id, {cols}) VALUES (1, '{ts1}', 'ata-WDC', '/dev/sda', {vals})")
+        conn.execute(f"INSERT INTO smart_info (id, {cols}) VALUES (2, '{ts2}', 'ata-WDC', '/dev/sda', {vals})")
+        conn.execute(f"INSERT INTO smart_info (id, {cols}) VALUES (3, '{ts1}', 'ata-Samsung', '/dev/sdb', {vals})")
+        conn.execute(f"INSERT INTO smart_info (id, {cols}) VALUES (4, '{ts2}', 'ata-Samsung', '/dev/sdb', {vals})")
         conn.commit()
 
         ids = find_redundant_ids(conn, "WDC", 30)

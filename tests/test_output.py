@@ -22,9 +22,7 @@ def _make_row(data: dict) -> sqlite3.Row:
         )
         cols = ", ".join(data.keys())
         placeholders = ", ".join("?" * len(data))
-        conn.execute(
-            f"INSERT INTO t ({cols}) VALUES ({placeholders})", list(data.values())
-        )
+        conn.execute(f"INSERT INTO t ({cols}) VALUES ({placeholders})", list(data.values()))
         conn.row_factory = sqlite3.Row
         return conn.execute("SELECT * FROM t").fetchone()
     finally:
@@ -102,6 +100,14 @@ class TestRowToFields:
         assert info["rotation_rate"] == "0"
         assert info["rotation_rate_display"] == "SSD (no rotation)"
 
+    def test_null_capacity_restores_numeric_defaults(self) -> None:
+        row = _make_row({"model_name": "Partial"})
+
+        info = row_to_fields(row)
+
+        assert info["user_capacity_bytes"] == 0
+        assert info["user_capacity_gib"] is None
+
     def test_new_fields_preserved(self) -> None:
         row = _make_row(
             {
@@ -166,7 +172,6 @@ class TestPrintJsonOutput:
                 "sda",
                 "/dev/sda",
                 fields,
-                {"raw": "data"},
                 timestamp="2024-01-01T00:00:00Z",
             )
         finally:

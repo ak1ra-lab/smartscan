@@ -10,8 +10,11 @@ from smartscan.llm import (
     OpenAIProvider,
     call_llm,
 )
-from smartscan.llm.prompts import build_prompt
+from smartscan.llm.prompts import build_batch_prompt, build_prompt
+from smartscan.llm.providers import lang_instruction
 from smartscan.models import LLMConfig
+from smartscan.results import DiskEntry
+from smartscan.thresholds import Alert
 
 
 def _make_config(**overrides: str | int | float | bool) -> LLMConfig:
@@ -44,15 +47,11 @@ class TestCallOpenAI:
         config = _make_config()
 
         with patch("httpx2.post") as mock_post:
-            mock_post.return_value = _make_mock_response(
-                {"choices": [{"message": {"content": "Drive is healthy."}}]}
-            )
+            mock_post.return_value = _make_mock_response({"choices": [{"message": {"content": "Drive is healthy."}}]})
             OpenAIProvider(config).call(build_prompt(fields, alerts_text))
 
         call_kwargs = mock_post.call_args.kwargs
-        assert (
-            mock_post.call_args.args[0] == "https://api.openai.com/v1/chat/completions"
-        )
+        assert mock_post.call_args.args[0] == "https://api.openai.com/v1/chat/completions"
         assert call_kwargs["headers"]["Authorization"] == "Bearer sk-test-key"
         assert call_kwargs["headers"]["Content-Type"] == "application/json"
 
@@ -69,9 +68,7 @@ class TestCallOpenAI:
         config = _make_config()
 
         with patch("httpx2.post") as mock_post:
-            mock_post.return_value = _make_mock_response(
-                {"choices": [{"message": {"content": "No issues detected."}}]}
-            )
+            mock_post.return_value = _make_mock_response({"choices": [{"message": {"content": "No issues detected."}}]})
             result = OpenAIProvider(config).call(build_prompt(fields, alerts_text))
 
         assert result == "No issues detected."
@@ -82,9 +79,7 @@ class TestCallOpenAI:
         config = _make_config(api_key="")
 
         with patch("httpx2.post") as mock_post:
-            mock_post.return_value = _make_mock_response(
-                {"choices": [{"message": {"content": "ok"}}]}
-            )
+            mock_post.return_value = _make_mock_response({"choices": [{"message": {"content": "ok"}}]})
             OpenAIProvider(config).call(build_prompt(fields, alerts_text))
 
         assert "Authorization" not in mock_post.call_args.kwargs["headers"]
@@ -116,9 +111,7 @@ class TestCallOpenAI:
 
         with caplog.at_level(logging.WARNING):
             with patch("httpx2.post") as mock_post:
-                mock_post.return_value = _make_mock_response(
-                    {"choices": [{"message": {"content": "ok"}}]}
-                )
+                mock_post.return_value = _make_mock_response({"choices": [{"message": {"content": "ok"}}]})
                 OpenAIProvider(config).call(build_prompt(fields, alerts_text))
 
         assert "api_url does not appear to match" in caplog.text
@@ -132,9 +125,7 @@ class TestCallOpenAI:
 
         with caplog.at_level(logging.WARNING):
             with patch("httpx2.post") as mock_post:
-                mock_post.return_value = _make_mock_response(
-                    {"choices": [{"message": {"content": "ok"}}]}
-                )
+                mock_post.return_value = _make_mock_response({"choices": [{"message": {"content": "ok"}}]})
                 OpenAIProvider(config).call(build_prompt(fields, alerts_text))
 
         assert "api_url does not appear to match" in caplog.text
@@ -146,9 +137,7 @@ class TestCallOpenAI:
 
         with caplog.at_level(logging.WARNING):
             with patch("httpx2.post") as mock_post:
-                mock_post.return_value = _make_mock_response(
-                    {"choices": [{"message": {"content": "ok"}}]}
-                )
+                mock_post.return_value = _make_mock_response({"choices": [{"message": {"content": "ok"}}]})
                 OpenAIProvider(config).call(build_prompt(fields, alerts_text))
 
         assert "api_url does not appear to match" not in caplog.text
@@ -165,9 +154,7 @@ class TestCallAnthropic:
         )
 
         with patch("httpx2.post") as mock_post:
-            mock_post.return_value = _make_mock_response(
-                {"content": [{"type": "text", "text": "Drive is healthy."}]}
-            )
+            mock_post.return_value = _make_mock_response({"content": [{"type": "text", "text": "Drive is healthy."}]})
             AnthropicProvider(config).call(build_prompt(fields, alerts_text))
 
         call_kwargs = mock_post.call_args.kwargs
@@ -192,9 +179,7 @@ class TestCallAnthropic:
         )
 
         with patch("httpx2.post") as mock_post:
-            mock_post.return_value = _make_mock_response(
-                {"content": [{"type": "text", "text": "All clear."}]}
-            )
+            mock_post.return_value = _make_mock_response({"content": [{"type": "text", "text": "All clear."}]})
             result = AnthropicProvider(config).call(build_prompt(fields, alerts_text))
 
         assert result == "All clear."
@@ -209,9 +194,7 @@ class TestCallAnthropic:
         )
 
         with patch("httpx2.post") as mock_post:
-            mock_post.return_value = _make_mock_response(
-                {"content": [{"type": "text", "text": "ok"}]}
-            )
+            mock_post.return_value = _make_mock_response({"content": [{"type": "text", "text": "ok"}]})
             AnthropicProvider(config).call(build_prompt(fields, alerts_text))
 
         assert "x-api-key" not in mock_post.call_args.kwargs["headers"]
@@ -226,9 +209,7 @@ class TestCallAnthropic:
 
         with caplog.at_level(logging.WARNING):
             with patch("httpx2.post") as mock_post:
-                mock_post.return_value = _make_mock_response(
-                    {"content": [{"type": "text", "text": "ok"}]}
-                )
+                mock_post.return_value = _make_mock_response({"content": [{"type": "text", "text": "ok"}]})
                 AnthropicProvider(config).call(build_prompt(fields, alerts_text))
 
         assert "api_url does not appear to match" in caplog.text
@@ -243,9 +224,7 @@ class TestCallAnthropic:
 
         with caplog.at_level(logging.WARNING):
             with patch("httpx2.post") as mock_post:
-                mock_post.return_value = _make_mock_response(
-                    {"content": [{"type": "text", "text": "ok"}]}
-                )
+                mock_post.return_value = _make_mock_response({"content": [{"type": "text", "text": "ok"}]})
                 AnthropicProvider(config).call(build_prompt(fields, alerts_text))
 
         assert "api_url does not appear to match" in caplog.text
@@ -260,9 +239,7 @@ class TestCallAnthropic:
 
         with caplog.at_level(logging.WARNING):
             with patch("httpx2.post") as mock_post:
-                mock_post.return_value = _make_mock_response(
-                    {"content": [{"type": "text", "text": "ok"}]}
-                )
+                mock_post.return_value = _make_mock_response({"content": [{"type": "text", "text": "ok"}]})
                 AnthropicProvider(config).call(build_prompt(fields, alerts_text))
 
         assert "api_url does not appear to match" not in caplog.text
@@ -328,6 +305,48 @@ class TestCallAnthropic:
         assert result == "Compat format result"
 
 
+class TestLangInstruction:
+    def test_zh_alias(self) -> None:
+        assert lang_instruction("zh") == lang_instruction("zh-CN")
+
+    def test_unsupported_language_returns_none(self) -> None:
+        assert lang_instruction("fr") is None
+
+
+class TestBuildBatchPrompt:
+    def test_includes_disk_details_and_errors(self) -> None:
+        entry = DiskEntry(
+            disk_name="sda",
+            disk_path="/dev/sda",
+            fields=make_fields(model_name="Test Model"),
+            alerts=[
+                Alert(
+                    field="temperature",
+                    level="warning",
+                    message="temperature: 55 (threshold: 50)",
+                )
+            ],
+            data={},
+            returncode=4,
+        )
+
+        prompt = build_batch_prompt([entry])
+
+        assert "## Disk: sda (Test Model)" in prompt
+        assert "Path: /dev/sda" in prompt
+        assert "- temperature: 55 (threshold: 50)" in prompt
+        assert "smartctl errors:" in prompt
+        assert "Bit 2" in prompt
+
+    def test_skips_entries_without_fields(self) -> None:
+        entry = DiskEntry("sdb", "/dev/sdb", None, [], None, 1)
+
+        prompt = build_batch_prompt([entry])
+
+        assert "0 disk devices" in prompt
+        assert "sdb" not in prompt
+
+
 class TestCallLLMDispatcher:
     def test_dispatches_to_openai_by_default(self) -> None:
         fields = make_fields()
@@ -335,9 +354,7 @@ class TestCallLLMDispatcher:
         config = _make_config()
 
         with patch("httpx2.post") as mock_post:
-            mock_post.return_value = _make_mock_response(
-                {"choices": [{"message": {"content": "OpenAI result"}}]}
-            )
+            mock_post.return_value = _make_mock_response({"choices": [{"message": {"content": "OpenAI result"}}]})
             result = call_llm(fields, alerts_text, config)
 
         assert result == "OpenAI result"
@@ -352,9 +369,7 @@ class TestCallLLMDispatcher:
         )
 
         with patch("httpx2.post") as mock_post:
-            mock_post.return_value = _make_mock_response(
-                {"content": [{"type": "text", "text": "Anthropic result"}]}
-            )
+            mock_post.return_value = _make_mock_response({"content": [{"type": "text", "text": "Anthropic result"}]})
             result = call_llm(fields, alerts_text, config)
 
         assert result == "Anthropic result"
@@ -362,22 +377,14 @@ class TestCallLLMDispatcher:
 
 
 class TestExtractAnthropicText:
-    _provider = AnthropicProvider(
-        _make_config(
-            provider="anthropic", api_url="https://api.anthropic.com/v1/messages"
-        )
-    )
+    _provider = AnthropicProvider(_make_config(provider="anthropic", api_url="https://api.anthropic.com/v1/messages"))
 
     def test_standard_format(self) -> None:
-        result = self._provider.parse_response(
-            {"content": [{"type": "text", "text": "All clear."}]}
-        )
+        result = self._provider.parse_response({"content": [{"type": "text", "text": "All clear."}]})
         assert result == "All clear."
 
     def test_fallback_to_content_key(self) -> None:
-        result = self._provider.parse_response(
-            {"content": [{"type": "text", "content": "Compat format"}]}
-        )
+        result = self._provider.parse_response({"content": [{"type": "text", "content": "Compat format"}]})
         assert result == "Compat format"
 
     def test_skips_thinking_blocks(self) -> None:
@@ -392,9 +399,7 @@ class TestExtractAnthropicText:
         assert result == "Drive is healthy."
 
     def test_non_text_block_no_type_falls_through(self) -> None:
-        result = self._provider.parse_response(
-            {"content": [{"content": "No type field"}]}
-        )
+        result = self._provider.parse_response({"content": [{"content": "No type field"}]})
         assert result == "No type field"
 
     def test_missing_content_key_raises(self) -> None:
@@ -410,7 +415,5 @@ class TestExtractAnthropicText:
             self._provider.parse_response({"content": []})
 
     def test_text_key_takes_priority_over_content_key(self) -> None:
-        result = self._provider.parse_response(
-            {"content": [{"text": "primary", "content": "fallback"}]}
-        )
+        result = self._provider.parse_response({"content": [{"text": "primary", "content": "fallback"}]})
         assert result == "primary"

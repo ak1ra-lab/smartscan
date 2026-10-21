@@ -8,10 +8,13 @@ from typing import Any
 from ..fields import (
     BASIC_PROMPT_FIELDS,
     CRITICAL_PROMPT_FIELDS,
+    MONITORED_FIELDS,
     SECONDARY_PROMPT_FIELDS,
+    TIME_SERIES_FIELDS,
     get_field,
 )
 from ..models import SmartInfo
+from ..results import DiskEntry
 from ..smartctl import smartctl_error_lines
 from .providers import lang_instruction
 
@@ -33,16 +36,12 @@ def _format_prompt_fields(fields: SmartInfo, indent: str = "  ") -> list[str]:
     lines.append("")
     lines.append(f"{indent}Critical Attributes:")
     for f in CRITICAL_PROMPT_FIELDS:
-        lines.append(
-            f"{indent}  {f.prompt_label or f.key}:     {get_field(fields, f.key)}"
-        )
+        lines.append(f"{indent}  {f.prompt_label or f.key}:     {get_field(fields, f.key)}")
 
     lines.append("")
     lines.append(f"{indent}Secondary Attributes:")
     for f in SECONDARY_PROMPT_FIELDS:
-        lines.append(
-            f"{indent}  {f.prompt_label or f.key}:         {get_field(fields, f.key)}"
-        )
+        lines.append(f"{indent}  {f.prompt_label or f.key}:         {get_field(fields, f.key)}")
 
     return lines
 
@@ -75,36 +74,38 @@ def build_prompt(
 
 
 def build_batch_prompt(
-    entries: list[
-        tuple[str, str, SmartInfo, list[Any], dict[str, Any] | None, int, str | None]
-    ],
+    entries: list[DiskEntry],
     lang: str | None = None,
 ) -> str:
+    entries_with_fields = [entry for entry in entries if entry.fields is not None]
     lines = [
-        f"SMART data from {len(entries)} disk devices is provided below.",
+        f"SMART data from {len(entries_with_fields)} disk devices is provided below.",
         "",
     ]
 
-    for disk_name, disk_path, fields, alerts, _raw_data, rc, _llm_analysis in entries:
+    for entry in entries_with_fields:
+        fields = entry.fields
+        if fields is None:
+            continue
         model = fields.get("model_name", "N/A")
-        lines.append(f"## Disk: {disk_name} ({model})")
-        lines.append(f"  Path: {disk_path}")
+        lines.append(f"## Disk: {entry.disk_name} ({model})")
+        lines.append(f"  Path: {entry.disk_path}")
         lines.append("")
 
         lines.extend(_format_prompt_fields(fields, indent="    "))
 
         lines.append("")
-        if alerts:
+        if entry.alerts:
             lines.append("    Alerts:")
-            for a in alerts:
-                lines.append(f"      - {a.message}")
+            for alert in entry.alerts:
+                lines.append(f"      - {alert.message}")
         else:
             lines.append("    Alerts: (none)")
 
-        if rc is not None and rc != 0:
+        if entry.returncode != 0:
             lines.append("")
             lines.append("    smartctl errors:")
-            lines.extend(f"      {line}" for line in smartctl_error_lines(rc))
+            lines.extend(f"      {line}" for line in smartctl_error_lines(entry.returncode))
 
         lines.append("")
 
@@ -121,8 +122,6 @@ def build_trend_prompt(
     entries: list[tuple[str, SmartInfo]],
     lang: str | None = None,
 ) -> str:
-    from ..fields import MONITORED_FIELDS, TIME_SERIES_FIELDS
-
     lines = [
         f"SMART Trend Data for Disk: {disk_name}",
         f"  Path: {disk_path}",
@@ -141,9 +140,7 @@ def build_trend_prompt(
         lines.append("")
 
     lines.append("  Time-series of monitored health attributes:")
-    lines.append(
-        f"  {'Timestamp':<22}" + "  ".join(f"{k:<14}" for k in sorted(MONITORED_FIELDS))
-    )
+    lines.append(f"  {'Timestamp':<22}" + "  ".join(f"{k:<14}" for k in sorted(MONITORED_FIELDS)))
     lines.append("  " + "-" * (22 + 18 * len(MONITORED_FIELDS)))
 
     for ts, fields in entries:

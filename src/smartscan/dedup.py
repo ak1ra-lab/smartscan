@@ -53,33 +53,24 @@ def compact_rows(
     if len(rows) <= 1:
         return list(rows)
 
-    prev_fields: SmartInfo | None = None
     keep: list[sqlite3.Row] = []
-    cluster_size = 1
     last_kept = rows[0]
+    prev_fields = row_to_fields(last_kept)
 
     for row in rows[1:]:
         ts_curr = _parse_ts(row["timestamp"])
         ts_ref = _parse_ts(last_kept["timestamp"])
         within_window = (ts_curr - ts_ref) <= timedelta(minutes=window_minutes)
-
-        if prev_fields is None:
-            prev_fields = row_to_fields(last_kept)
-
         curr_fields = row_to_fields(row)
 
         if within_window and not has_significant_change(prev_fields, curr_fields):
             last_kept = row
-            prev_fields = curr_fields
-            cluster_size += 1
         else:
             keep.append(last_kept)
             last_kept = row
-            prev_fields = curr_fields
-            cluster_size = 1
+        prev_fields = curr_fields
 
-    if last_kept is not None:
-        keep.append(last_kept)
+    keep.append(last_kept)
 
     logging.debug(
         "compact_rows: %d -> %d rows (window=%dmin)",
@@ -88,6 +79,23 @@ def compact_rows(
         window_minutes,
     )
     return keep
+
+
+def compact_by_disk(
+    rows: list[sqlite3.Row],
+    window_minutes: int,
+) -> list[sqlite3.Row]:
+    """Compact rows independently per disk, returning chronological results."""
+    groups: dict[str, list[sqlite3.Row]] = {}
+    for row in rows:
+        groups.setdefault(row["disk_path"], []).append(row)
+
+    compacted: list[sqlite3.Row] = []
+    for disk_rows in groups.values():
+        disk_rows.sort(key=lambda r: r["timestamp"])
+        compacted.extend(compact_rows(disk_rows, window_minutes))
+    compacted.sort(key=lambda r: (r["disk_path"], r["timestamp"]))
+    return compacted
 
 
 def find_redundant_ids(
@@ -100,18 +108,7 @@ def find_redundant_ids(
     if not rows:
         return []
 
-    groups: dict[str, list[sqlite3.Row]] = {}
-    for row in rows:
-        groups.setdefault(row["disk_path"], []).append(row)
-
-    keep_ids: set[int] = set()
-
-    for disk_rows in groups.values():
-        disk_rows.sort(key=lambda r: r["timestamp"])
-        compacted = compact_rows(disk_rows, window_minutes)
-        for row in compacted:
-            keep_ids.add(row["id"])
-
+    keep_ids = {row["id"] for row in compact_by_disk(rows, window_minutes)}
     redundant = [row["id"] for row in rows if row["id"] not in keep_ids]
     logging.debug(
         "find_redundant_ids: %d total, %d keep, %d redundant",

@@ -22,7 +22,7 @@ smartscan is a CLI tool that runs `smartctl` on all disk devices, extracts key S
 ## Conventions
 
 - Application code lives under `src/smartscan`.
-- The CLI uses stdlib `argparse` with `argcomplete` for shell completion. Subcommands: `collect`, `query`, and `lsblk`.
+- The CLI uses stdlib `argparse` with `argcomplete` for shell completion. Subcommands: `collect`, `query`, `prune`, and `lsblk`.
 - Terminal output uses [Rich](https://rich.readthedocs.io/) for styled tables and formatting.
 - Configuration uses [Pydantic](https://docs.pydantic.dev/) `BaseModel` for validation.
 - SMART field structures use `TypedDict` (`SmartInfo`) for type safety.
@@ -45,8 +45,10 @@ smartscan is a CLI tool that runs `smartctl` on all disk devices, extracts key S
 | `thresholds.py` | `check_thresholds()`, `Alert` dataclass |
 | `output.py` | Rich-powered `print_table()`, `print_query_table()`, `print_json_output()`, `print_lsblk_tree()` |
 | `database.py` | SQLite init, open, save, query, schema generation |
-| `llm.py` | `BaseLLMProvider` → `OpenAIProvider` / `AnthropicProvider`, `call_llm()`, `_build_prompt()` |
-| `commands.py` | `do_collect()`, `do_query()`, `do_lsblk()` |
+| `llm/` | `providers.py` (`BaseLLMProvider` → `OpenAIProvider` / `AnthropicProvider`, `call_llm()`) and `prompts.py` (`_build_prompt()` helpers) |
+| `notifications/` | `channels.py` (`BaseNotifier` → Telegram / DingTalk / Feishu) and `report.py` (`build_report_text()`, `send_notifications()`) |
+| `results.py` | `DiskEntry` dataclass shared by command, LLM, and notification code |
+| `commands.py` | `do_collect()`, `do_query()`, `do_prune()`, `do_lsblk()` |
 | `cli.py` | `create_parser()`, `main()` |
 
 ## Testing Guidelines

@@ -21,7 +21,7 @@ from .utils import (
     safe_get,
 )
 
-_SOURCE_DIRS = ("by-id", "by-path", "by-diskseq")
+SOURCE_DIRS = ("by-id", "by-path", "by-diskseq")
 
 
 def _compile_excludes(patterns: list[str] | None) -> list[re.Pattern[str]]:
@@ -165,9 +165,7 @@ def run_smartctl(disk_path: Path) -> tuple[dict[str, Any], int]:
             timeout=30,
         )
     except FileNotFoundError:
-        raise SmartctlError(
-            "smartctl not found. Please install smartmontools."
-        ) from None
+        raise SmartctlError("smartctl not found. Please install smartmontools.") from None
     except subprocess.TimeoutExpired:
         logging.error("smartctl timed out for %s", disk_path)
         return {}, -1
@@ -250,12 +248,8 @@ def _extract_ata_health(data: dict[str, Any]) -> SmartInfo:
         current_pending_sector=_find_attr(data, "Current_Pending_Sector"),
         offline_uncorrectable=_find_attr(data, "Offline_Uncorrectable"),
         reallocated_event_count=_find_attr(data, "Reallocated_Event_Count"),
-        ata_smart_error_log=str(
-            safe_get(data, "ata_smart_error_log", "summary", "count", default="0")
-        ),
-        self_test_status=str(
-            safe_get(data, "ata_smart_data", "self_test", "status", "string")
-        ),
+        ata_smart_error_log=str(safe_get(data, "ata_smart_error_log", "summary", "count", default="0")),
+        self_test_status=str(safe_get(data, "ata_smart_data", "self_test", "status", "string")),
         udma_crc_error_count=_find_attr(data, "UDMA_CRC_Error_Count"),
         raw_read_error_rate=_find_attr(data, "Raw_Read_Error_Rate"),
         spin_retry_count=_find_attr(data, "Spin_Retry_Count"),
@@ -289,7 +283,7 @@ def extract_fields(data: dict[str, Any]) -> SmartInfo:
 
 def build_device_tree(
     pattern: str = ".*",
-    sources: tuple[str, ...] = _SOURCE_DIRS,
+    sources: tuple[str, ...] = SOURCE_DIRS,
     exclude_patterns: list[str] | None = None,
 ) -> list[dict[str, object]]:
     """Scan ``/dev/disk/<source>/`` directories and map block devices to their identifiers.
@@ -355,9 +349,7 @@ def build_device_tree(
         detail = ""
         if not available_sources:
             detail = f" (no /dev/disk/ source directories found; checked: {', '.join(sources)})"
-        raise DiskNotFoundError(
-            f"No disk identifiers found matching pattern: {pattern}{detail}"
-        )
+        raise DiskNotFoundError(f"No disk identifiers found matching pattern: {pattern}{detail}")
 
     result: list[dict[str, object]] = []
     for device in sorted(seen_devices):

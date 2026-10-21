@@ -6,6 +6,7 @@ import logging
 from typing import Any
 
 from ..models import LLMConfig, SmartInfo
+from ..results import DiskEntry
 from .prompts import build_batch_prompt, build_prompt, build_trend_prompt
 from .providers import (
     AnthropicProvider,
@@ -48,9 +49,7 @@ def call_llm(
 
 
 def call_llm_batch(
-    entries: list[
-        tuple[str, str, SmartInfo, list[Any], dict[str, Any] | None, int, str | None]
-    ],
+    entries: list[DiskEntry],
     config: LLMConfig,
 ) -> str | None:
     """Submit all disk results as a single batch to the LLM.
@@ -63,9 +62,7 @@ def call_llm_batch(
         config.provider,
         config.model,
     )
-    batch_config = config.model_copy(
-        update={"system_prompt": config.batch_system_prompt}
-    )
+    batch_config = config.model_copy(update={"system_prompt": config.batch_system_prompt})
     provider = get_provider(batch_config)
     user_prompt = build_batch_prompt(entries, lang=config.lang)
     return provider.call(user_prompt)

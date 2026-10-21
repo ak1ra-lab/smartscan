@@ -4,26 +4,19 @@ from __future__ import annotations
 
 import logging
 import socket
-from typing import Any
 
-from ..models import SmartInfo
-from ..thresholds import Alert
-from .channels import DingTalkNotifier, FeishuNotifier, TelegramNotifier
+from ..models import NotificationConfig
+from ..results import DiskEntry
+from .channels import BaseNotifier, DingTalkNotifier, FeishuNotifier, TelegramNotifier
 
 
 def build_report_text(
     hostname: str,
-    disk_results: list[
-        tuple[str, str, SmartInfo, list[Alert], dict[str, Any] | None, int, str | None]
-    ],
+    disk_results: list[DiskEntry],
     batch_llm_analysis: str | None = None,
 ) -> str:
     total = len(disk_results)
-    alert_disks = [
-        (name, path, fields, alerts)
-        for name, path, fields, alerts, *_ in disk_results
-        if alerts
-    ]
+    alert_disks = [entry for entry in disk_results if entry.fields is not None and entry.alerts]
 
     lines = [f"smartscan report — {hostname}", ""]
     lines.append(f"Disks checked: {total}")
@@ -32,17 +25,16 @@ def build_report_text(
     if alert_disks:
         lines.append("")
         lines.append("Alerts:")
-        for name, path, fields, alerts in alert_disks:
-            model = fields.get("model_name", "N/A")
-            lines.append(f"  - {name} ({model}):")
-            for a in alerts:
+        for entry in alert_disks:
+            model = entry.fields.get("model_name", "N/A") if entry.fields else "N/A"
+            lines.append(f"  - {entry.disk_name} ({model}):")
+            for a in entry.alerts:
                 lines.append(f"      [{a.level}] {a.message}")
 
     per_disk_llm: dict[str, str] = {}
     for entry in disk_results:
-        llm_text = entry[6]
-        if llm_text:
-            per_disk_llm[entry[0]] = llm_text
+        if entry.llm_analysis:
+            per_disk_llm[entry.disk_name] = entry.llm_analysis
     if per_disk_llm:
         lines.append("")
         lines.append("Per-disk LLM Analysis:")
@@ -60,10 +52,8 @@ def build_report_text(
     return "\n".join(lines)
 
 
-def _get_notifiers(
-    notify_config: Any,
-) -> list[TelegramNotifier | DingTalkNotifier | FeishuNotifier]:
-    notifiers = []
+def _get_notifiers(notify_config: NotificationConfig) -> list[BaseNotifier]:
+    notifiers: list[BaseNotifier] = []
     if notify_config.telegram.enabled and notify_config.telegram.bot_token:
         logging.debug("Telegram notifier enabled")
         notifiers.append(TelegramNotifier(notify_config.telegram))
@@ -79,10 +69,8 @@ def _get_notifiers(
 
 
 def send_notifications(
-    notify_config: Any,
-    disk_results: list[
-        tuple[str, str, SmartInfo, list[Alert], dict[str, Any] | None, int, str | None]
-    ],
+    notify_config: NotificationConfig,
+    disk_results: list[DiskEntry],
     batch_llm_analysis: str | None = None,
 ) -> None:
     hostname = socket.gethostname()

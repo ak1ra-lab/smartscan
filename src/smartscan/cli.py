@@ -12,7 +12,6 @@ import argcomplete
 
 from .commands import do_collect, do_lsblk, do_prune, do_query
 from .config import load_config
-from .constants import DEFAULT_DB_PATH, DEFAULT_LOG_FILE
 from .exceptions import SmartScanError
 from .logging import setup_logging
 from .models import SmartScanConfig
@@ -41,12 +40,12 @@ def _build_parser(config: SmartScanConfig | None = None) -> argparse.ArgumentPar
     parser.add_argument(
         "--db-path",
         default=cfg.db_path,
-        help=f"Database file path (default: {DEFAULT_DB_PATH})",
+        help=f"Database file path (default: {cfg.db_path})",
     )
     parser.add_argument(
         "--log-file",
         default=cfg.log_file,
-        help=f"Log file path (default: {DEFAULT_LOG_FILE})",
+        help=f"Log file path (default: {cfg.log_file})",
     )
     parser.add_argument(
         "--log-level",
@@ -72,9 +71,7 @@ def _build_parser(config: SmartScanConfig | None = None) -> argparse.ArgumentPar
 
     sub = parser.add_subparsers(dest="command", required=True)
 
-    collect_parser = sub.add_parser(
-        "collect", help="Collect SMART data from disk devices"
-    )
+    collect_parser = sub.add_parser("collect", help="Collect SMART data from disk devices")
     collect_parser.add_argument(
         "pattern",
         nargs="?",
@@ -99,8 +96,7 @@ def _build_parser(config: SmartScanConfig | None = None) -> argparse.ArgumentPar
     collect_parser.add_argument(
         "--notify",
         action="store_true",
-        help="Force sending notifications via configured channels, "
-        "even when no alerts are triggered",
+        help="Force sending notifications via configured channels, even when no alerts are triggered",
     )
     collect_parser.add_argument(
         "-v",
@@ -109,9 +105,7 @@ def _build_parser(config: SmartScanConfig | None = None) -> argparse.ArgumentPar
         help="Show extended fields in terminal output",
     )
 
-    query_parser = sub.add_parser(
-        "query", help="Query historical SMART data from database"
-    )
+    query_parser = sub.add_parser("query", help="Query historical SMART data from database")
     query_parser.add_argument(
         "pattern",
         nargs="?",
@@ -151,18 +145,15 @@ def _build_parser(config: SmartScanConfig | None = None) -> argparse.ArgumentPar
         type=int,
         default=cfg.query.compact_window_minutes,
         metavar="MINUTES",
-        help="Time window in minutes for change-detection compaction (default: 30)",
+        help=f"Time window in minutes for change-detection compaction (default: {cfg.query.compact_window_minutes})",
     )
     query_parser.add_argument(
         "--trend",
         action="store_true",
-        help="Request LLM trend analysis for compacted records "
-        "(requires configured LLM)",
+        help="Request LLM trend analysis for compacted records (requires configured LLM)",
     )
 
-    prune_parser = sub.add_parser(
-        "prune", help="Remove redundant records with no significant SMART changes"
-    )
+    prune_parser = sub.add_parser("prune", help="Remove redundant records with no significant SMART changes")
     prune_parser.add_argument(
         "pattern",
         nargs="?",
@@ -175,7 +166,7 @@ def _build_parser(config: SmartScanConfig | None = None) -> argparse.ArgumentPar
         type=int,
         default=cfg.prune.window_minutes,
         metavar="MINUTES",
-        help="Time window in minutes for redundancy detection (default: 30)",
+        help=f"Time window in minutes for redundancy detection (default: {cfg.prune.window_minutes})",
     )
     prune_parser.add_argument(
         "--dry-run",
@@ -215,6 +206,7 @@ def _build_parser(config: SmartScanConfig | None = None) -> argparse.ArgumentPar
 
 def main() -> None:
     """Entry point: load config, parse args, and dispatch to the appropriate subcommand."""
+    exit_code = 0
     try:
         # Bootstrap with silent logging — the real file handler is
         # attached after config is loaded and arguments are parsed.
@@ -252,7 +244,9 @@ def main() -> None:
         elif args.command == "lsblk":
             do_lsblk(args)
         else:
-            do_collect(args)
+            exit_code = do_collect(args)
     except SmartScanError as exc:
         print(f"Error: {exc}", file=sys.stderr)
         sys.exit(1)
+
+    sys.exit(exit_code)

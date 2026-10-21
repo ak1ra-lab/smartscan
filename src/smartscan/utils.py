@@ -61,9 +61,7 @@ def compile_exclude_patterns(patterns: list[str] | None) -> list[re.Pattern[str]
     return compiled
 
 
-def is_excluded(
-    name: str, target: str, exclude_compiled: list[re.Pattern[str]]
-) -> bool:
+def is_excluded(name: str, target: str, exclude_compiled: list[re.Pattern[str]]) -> bool:
     """Return ``True`` if *name* or *target* matches any compiled exclude pattern."""
     return any(exc.search(name) or exc.search(target) for exc in exclude_compiled)
 
@@ -78,7 +76,7 @@ def is_whole_disk(dev_path: str | Path) -> bool:
     part_file = _SYS_BLOCK / name / "partition"
     try:
         return part_file.read_text().strip() == "0"
-    except (OSError, FileNotFoundError):
+    except OSError:
         return not bool(_PARTITION_NAME_RE.match(name))
 
 
@@ -106,8 +104,8 @@ def get_disk_info(dev_path: str) -> tuple[str, str, int]:
     model = "N/A"
     model_file = sys_dir / "device" / "model"
     try:
-        model = model_file.read_text().strip()
-    except (OSError, FileNotFoundError):
+        model = model_file.read_text().strip() or "N/A"
+    except OSError:
         pass
 
     size_bytes = 0
@@ -115,7 +113,7 @@ def get_disk_info(dev_path: str) -> tuple[str, str, int]:
     try:
         sectors = int(size_file.read_text().strip())
         size_bytes = sectors * _SECTOR_BYTES
-    except (OSError, FileNotFoundError, ValueError):
+    except (OSError, ValueError):
         pass
 
     size_human = format_size(size_bytes)
