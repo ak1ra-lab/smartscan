@@ -6,6 +6,7 @@ import json
 from typing import Any
 
 from ..fields import (
+    ALL_HEALTH_FIELDS,
     BASIC_PROMPT_FIELDS,
     CRITICAL_PROMPT_FIELDS,
     MONITORED_FIELDS,
@@ -56,6 +57,29 @@ def _format_prompt_fields(fields: SmartInfo, indent: str = "  ") -> list[str]:
     return lines
 
 
+def _format_all_fields(
+    fields: SmartInfo,
+    indent: str = "  ",
+    header: str = "Complete extracted fields:",
+) -> list[str]:
+    """Render every extracted field, including values the drive does not provide."""
+    lines = [f"{indent}{header}"]
+    for field in ALL_HEALTH_FIELDS:
+        lines.append(f"{indent}  {field.key}: {_format_value(field, get_field(fields, field.key))}")
+    return lines
+
+
+def _format_raw_json(raw_data: dict[str, Any] | None, indent: str = "") -> list[str]:
+    """Render the complete smartctl JSON payload when it is available."""
+    if not raw_data:
+        return []
+    raw_json = json.dumps(raw_data, indent=2, ensure_ascii=False)
+    lines = ["", f"{indent}Complete smartctl JSON (all attributes and logs):", f"{indent}```json"]
+    lines.extend(f"{indent}{line}" for line in raw_json.splitlines())
+    lines.append(f"{indent}```")
+    return lines
+
+
 def build_prompt(
     fields: SmartInfo,
     alerts_text: str,
@@ -65,10 +89,9 @@ def build_prompt(
 ) -> str:
     lines = ["SMART Data for Analysis:", ""]
     lines.extend(_format_prompt_fields(fields, indent="  "))
-
-    if raw_data:
-        raw_json = json.dumps(raw_data, indent=2, ensure_ascii=False)
-        lines.extend(["", "Raw smartctl JSON:", "```json", raw_json, "```"])
+    lines.append("")
+    lines.extend(_format_all_fields(fields, indent="  "))
+    lines.extend(_format_raw_json(raw_data))
 
     lines.extend(["", "Triggered Alerts:", alerts_text])
 
@@ -103,6 +126,8 @@ def build_batch_prompt(
         lines.append("")
 
         lines.extend(_format_prompt_fields(fields, indent="    "))
+        lines.append("")
+        lines.extend(_format_all_fields(fields, indent="    "))
 
         lines.append("")
         if entry.alerts:
@@ -117,6 +142,7 @@ def build_batch_prompt(
             lines.append("    smartctl errors:")
             lines.extend(f"      {line}" for line in smartctl_error_lines(entry.returncode))
 
+        lines.extend(_format_raw_json(entry.data, indent="    "))
         lines.append("")
 
     instruction = lang_instruction(lang)
@@ -168,6 +194,17 @@ def build_trend_prompt(
         for ts, fields in entries:
             all_vals.append(f"{ts}: {fields.get(key, 'N/A')}")
         lines.append(f"  {key}: " + ", ".join(all_vals[-3:]))
+
+    if entries:
+        latest_fields = entries[-1][1]
+        lines.append("")
+        lines.extend(
+            _format_all_fields(
+                latest_fields,
+                indent="  ",
+                header="Latest record — complete extracted fields:",
+            )
+        )
 
     lines.extend(
         [

@@ -10,7 +10,7 @@ from smartscan.llm import (
     OpenAIProvider,
     call_llm,
 )
-from smartscan.llm.prompts import build_batch_prompt, build_prompt
+from smartscan.llm.prompts import build_batch_prompt, build_prompt, build_trend_prompt
 from smartscan.llm.providers import lang_instruction
 from smartscan.models import LLMConfig
 from smartscan.results import DiskEntry
@@ -330,6 +330,31 @@ class TestBuildPrompt:
         assert "N/A hours" not in prompt
         assert "N/A°C" not in prompt
 
+    def test_includes_complete_extracted_fields(self) -> None:
+        fields = make_fields(serial_number="SERIAL123", interface_speed="6.0 Gb/s")
+
+        prompt = build_prompt(fields, "  (none)")
+
+        assert "Complete extracted fields:" in prompt
+        assert "serial_number: SERIAL123" in prompt
+        assert "interface_speed: 6.0 Gb/s" in prompt
+
+    def test_includes_complete_raw_smartctl_json(self) -> None:
+        raw_data = {
+            "ata_smart_attributes": {
+                "table": [
+                    {"id": 5, "name": "Reallocated_Sector_Ct", "raw": {"value": 3, "string": "3"}},
+                    {"id": 197, "name": "Current_Pending_Sector", "raw": {"value": 0, "string": "0"}},
+                ]
+            }
+        }
+
+        prompt = build_prompt(make_fields(), "  (none)", raw_data=raw_data)
+
+        assert "Complete smartctl JSON (all attributes and logs):" in prompt
+        assert '"name": "Reallocated_Sector_Ct"' in prompt
+        assert '"id": 197' in prompt
+
 
 class TestBuildBatchPrompt:
     def test_includes_disk_details_and_errors(self) -> None:
@@ -363,6 +388,43 @@ class TestBuildBatchPrompt:
 
         assert "0 disk devices" in prompt
         assert "sdb" not in prompt
+
+    def test_includes_complete_fields_and_raw_json(self) -> None:
+        entry = DiskEntry(
+            disk_name="sda",
+            disk_path="/dev/sda",
+            fields=make_fields(serial_number="SERIAL123"),
+            alerts=[],
+            data={
+                "ata_smart_attributes": {
+                    "table": [
+                        {"id": 197, "name": "Current_Pending_Sector", "raw": {"value": 2, "string": "2"}},
+                    ]
+                }
+            },
+            returncode=0,
+        )
+
+        prompt = build_batch_prompt([entry])
+
+        assert "Complete extracted fields:" in prompt
+        assert "serial_number: SERIAL123" in prompt
+        assert "Complete smartctl JSON (all attributes and logs):" in prompt
+        assert '"name": "Current_Pending_Sector"' in prompt
+
+
+class TestBuildTrendPrompt:
+    def test_includes_latest_complete_fields(self) -> None:
+        entries = [
+            ("2026-01-01T00:00:00Z", make_fields(firmware_version="OLD-FW")),
+            ("2026-01-02T00:00:00Z", make_fields(firmware_version="NEW-FW")),
+        ]
+
+        prompt = build_trend_prompt("sda", "/dev/sda", entries)
+
+        assert "Latest record — complete extracted fields:" in prompt
+        assert "firmware_version: NEW-FW" in prompt
+        assert "firmware_version: OLD-FW" not in prompt
 
 
 class TestCallLLMDispatcher:

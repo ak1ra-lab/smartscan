@@ -12,6 +12,13 @@ The `collect` subcommand supports three LLM modes via `--llm`:
 
 Without the `--llm` flag, the default behaviour is config-driven: per-disk analysis only for disks that triggered threshold alerts.
 
+LLM prompts are intentionally more detailed than the terminal tables. Each
+per-disk and batch-summary prompt includes a human-readable summary, every
+extracted field, and the complete raw `smartctl` JSON when it is available.
+This gives the model access to the full SMART attribute tables and logs, not
+just the fields shown by `collect` or `query`. Trend analysis sends the
+monitored time series plus the latest complete extracted field set.
+
 The `query` subcommand supports trend analysis via `--trend`, which sends
 time-series data to the LLM for each disk after compaction:
 
