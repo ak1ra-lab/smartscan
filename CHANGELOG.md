@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Invalid or unreadable config files now abort with an error instead of silently falling back to defaults
+- Replace Zensical with MkDocs Material for the documentation site
 
 ### Fixed
 

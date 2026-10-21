@@ -12,7 +12,7 @@ A CLI tool that runs `smartctl` on all disks, extracts key SMART health metrics,
 - Maps disk devices to their `/dev/disk/` identifiers with a Rich tree view (`lsblk` subcommand).
 - Supports JSON lines output for scripting.
 - Configurable via TOML config file with Pydantic validation.
-- Built with `uv`, `ruff`, `ty`, `pytest`, and `zensical`.
+- Built with `uv`, `ruff`, `ty`, `pytest`, and `MkDocs`.
 - CLI uses `argparse` and `argcomplete` for shell completion.
 
 ## Prerequisites
@@ -149,6 +149,6 @@ Common tasks are scripted as `just` recipes:
 | `just test`       | Run the pytest suite                                                   |
 | `just coverage`   | Run tests with HTML coverage report                                    |
 | `just build`      | Build the wheel and sdist                                              |
-| `just docs-build` | Build the static docs site with Zensical                               |
+| `just docs-build` | Build the static docs site with MkDocs                                 |
 | `just docs-serve` | Preview docs locally on the configured dev address                     |
 | `just all`        | Run lint, typecheck, test, coverage, build, and docs-build in sequence |

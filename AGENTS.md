@@ -28,7 +28,7 @@ smartscan is a CLI tool that runs `smartctl` on all disk devices, extracts key S
 - SMART field structures use `TypedDict` (`SmartInfo`) for type safety.
 - Custom exceptions (`SmartScanError` hierarchy) separate error handling from business logic — only `cli.py` calls `sys.exit()`.
 - Tests live under `tests/` and should track public behavior, especially the CLI.
-- Documentation source lives under `docs/`, and docs configuration lives in `zensical.toml`.
+- Documentation source lives under `docs/`, and docs configuration lives in `mkdocs.yaml`.
 - Project metadata and dependency groups are defined in `pyproject.toml`; treat that file as the source of truth for tooling changes.
 
 ## Module Layout
@@ -65,6 +65,6 @@ just lint              # lint and format source plus tests
 just typecheck         # run Astral ty over src/
 just test              # run the pytest suite
 just all               # run lint, typecheck, test, coverage, build, docs-build
-just docs-build        # build the static docs site with Zensical
+just docs-build        # build the static docs site with MkDocs
 just docs-serve        # preview docs locally on the configured dev address
 ```

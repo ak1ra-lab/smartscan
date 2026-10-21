@@ -32,11 +32,11 @@ build:
 
 # Serve documentation locally
 docs-serve:
-    uv run zensical serve
+    uv run mkdocs serve -f mkdocs.yaml
 
 # Build documentation
 docs-build:
-    uv run zensical build
+    uv run mkdocs build --strict -f mkdocs.yaml
 
 # Remove build artifacts
 clean:

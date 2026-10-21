@@ -1,0 +1,41 @@
+---
+site_name: "smartscan"
+site_description: "A CLI tool that runs smartctl on all disks, extracts key SMART health metrics, and stores historical results in SQLite for tracking changes over time."
+site_url: "https://ak1ra-lab.github.io/smartscan/"
+site_author: "ak1ra"
+copyright: "Copyright &copy; 2026 ak1ra"
+repo_url: "https://github.com/ak1ra-lab/smartscan"
+repo_name: "ak1ra-lab/smartscan"
+docs_dir: docs
+site_dir: site
+dev_addr: 0.0.0.0:8000
+
+nav:
+  - Home: index.md
+  - Configuration: configuration.md
+  - LLM Examples: llm-examples.md
+
+theme:
+  name: material
+  language: en
+  features:
+    - content.code.copy
+    - navigation.footer
+    - navigation.instant
+    - navigation.sections
+    - navigation.top
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - pymdownx.superfences
+  - md_in_html
+  - toc:
+      permalink: true
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [src]
