@@ -30,7 +30,7 @@ console = Console(highlight=False)
 
 def _format_field_value(field: FieldDef, fields: SmartInfo) -> str:
     value = get_field(fields, field.key)
-    if value is None:
+    if value is None or value == "N/A":
         return "N/A"
     if field.format_label:
         return field.format_label.format(value=value)

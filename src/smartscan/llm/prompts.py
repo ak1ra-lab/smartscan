@@ -21,7 +21,7 @@ from .providers import lang_instruction
 
 
 def _format_value(field: FieldDef, value: Any) -> str:
-    if value is None:
+    if value is None or value == "N/A":
         return "N/A"
     if field.format_label:
         return field.format_label.format(value=value)

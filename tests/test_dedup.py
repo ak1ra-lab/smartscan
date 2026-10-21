@@ -96,6 +96,11 @@ class TestHasSignificantChange:
         assert "endurance_used_percent" in MONITORED_FIELDS
         assert "available_spare_percent" in MONITORED_FIELDS
         assert "unsafe_shutdowns" in MONITORED_FIELDS
+        assert "pending_defects_count" in MONITORED_FIELDS
+        assert "sata_phy_icrc_errors" in MONITORED_FIELDS
+        assert "sata_phy_crc_errors" in MONITORED_FIELDS
+        assert "scsi_uncorrected_errors" in MONITORED_FIELDS
+        assert "scsi_sas_phy_errors" in MONITORED_FIELDS
         assert "reallocated_sector_ct" in MONITORED_FIELDS
         assert "current_pending_sector" in MONITORED_FIELDS
         assert "offline_uncorrectable" in MONITORED_FIELDS

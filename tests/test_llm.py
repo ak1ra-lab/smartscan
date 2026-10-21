@@ -316,6 +316,20 @@ class TestBuildPrompt:
         assert "None" not in prompt
         assert "Data Written:         N/A" in prompt
 
+    def test_na_formatted_fields_render_without_units(self) -> None:
+        fields = make_fields(
+            available_spare_percent="N/A",
+            endurance_used_percent="N/A",
+            power_on_time="N/A",
+            temperature="N/A",
+        )
+
+        prompt = build_prompt(fields, "  (none)")
+
+        assert "N/A%" not in prompt
+        assert "N/A hours" not in prompt
+        assert "N/A°C" not in prompt
+
 
 class TestBuildBatchPrompt:
     def test_includes_disk_details_and_errors(self) -> None:

@@ -32,6 +32,13 @@ class SmartInfo(TypedDict):
     available_spare_percent: str
     data_written_tib: float | None
     unsafe_shutdowns: str
+    pending_defects_count: str
+    sata_phy_icrc_errors: str
+    sata_phy_crc_errors: str
+    sata_phy_comreset_count: str
+    scsi_uncorrected_errors: str
+    scsi_corrected_errors: str
+    scsi_sas_phy_errors: str
     reallocated_sector_ct: str
     current_pending_sector: str
     offline_uncorrectable: str
@@ -53,6 +60,11 @@ class ThresholdRules(BaseModel):
     reallocated_sector_ct: int = 0
     current_pending_sector: int = 0
     offline_uncorrectable: int = 0
+    pending_defects_count: int = 0
+    sata_phy_icrc_errors: int = 0
+    sata_phy_crc_errors: int = 0
+    scsi_uncorrected_errors: int = 0
+    scsi_sas_phy_errors: int = 0
     reallocated_event_count: int = 0
     udma_crc_error_count: int = 0
     ata_smart_error_log_count: int = 0

@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Extract NVMe endurance used, available spare, data written, and unsafe shutdowns from the SMART/Health log
 - Extract ATA endurance and data-written values from Device Statistics collected by `--xall`
+- Extract ATA pending-defect counts and SATA PHY ICRC/CRC/COMRESET counters
+- Discover and extract SCSI/SAS disks, including grown defects, error counters, start-stop cycles, link rate, and SAS PHY errors
 - Add `thresholds.endurance_used_percent` (default `90`) and report SSD endurance in tables, JSON, and LLM prompts
 
 ### Changed

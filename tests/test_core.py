@@ -10,7 +10,7 @@ from conftest import make_fields
 from smartscan.database import init_db, parse_date, query_smart_info, save_to_db
 from smartscan.exceptions import InvalidDateError
 from smartscan.models import ThresholdRules
-from smartscan.smartctl import extract_fields, find_in_table, run_smartctl, safe_get
+from smartscan.smartctl import extract_fields, find_disks, find_in_table, run_smartctl, safe_get
 from smartscan.thresholds import check_thresholds
 
 
@@ -134,6 +134,62 @@ class TestRunSmartctl:
         assert data["interface_speed"]["current"]["string"] == "8.0 GT/s PCIe x4"
 
 
+class TestFindDisks:
+    def test_includes_scsi_and_skips_partitions(self) -> None:
+        class FakeEntry:
+            def __init__(self, name: str, target: str) -> None:
+                self._name = name
+                self._target = target
+
+            def is_symlink(self) -> bool:
+                return True
+
+            @property
+            def name(self) -> str:
+                return self._name
+
+            def resolve(self) -> FakePath:
+                return FakePath(self._target)
+
+            def __lt__(self, other: FakeEntry) -> bool:
+                return self._name < other._name
+
+        class FakePath:
+            def __init__(self, path: str) -> None:
+                self._path = path
+
+            def is_dir(self) -> bool:
+                return self._path == "/dev/disk/by-id"
+
+            def is_block_device(self) -> bool:
+                return not self._path.startswith("/dev/st")
+
+            @property
+            def name(self) -> str:
+                return self._path.rsplit("/", 1)[-1]
+
+            def iterdir(self) -> list[FakeEntry]:
+                return entries
+
+        entries = [
+            FakeEntry("ata-Samsung_SSD", "/dev/sdb"),
+            FakeEntry("nvme-Micron_7300", "/dev/nvme0n1"),
+            FakeEntry("scsi-35000c500abc", "/dev/sda"),
+            FakeEntry("scsi-35000c500abc-part1", "/dev/sda1"),
+            FakeEntry("scsi-35000c500tape", "/dev/st0"),
+            FakeEntry("scsi-35000c500dvd", "/dev/sr0"),
+        ]
+
+        with patch("smartscan.smartctl.Path", FakePath):
+            disks = find_disks(".*")
+
+        assert [disk.name for disk in disks] == [
+            "ata-Samsung_SSD",
+            "nvme-Micron_7300",
+            "scsi-35000c500abc",
+        ]
+
+
 class TestExtractFields:
     def test_extract_basic_fields(self) -> None:
         data = {
@@ -200,6 +256,102 @@ class TestExtractFields:
         fields = extract_fields(data)
         assert fields["endurance_used_percent"] == "12"
         assert fields["data_written_tib"] == pytest.approx(1.0)
+
+    def test_ata_pending_defects_and_phy_counters(self) -> None:
+        data = {
+            "ata_pending_defects_log": {
+                "count": 2,
+                "table": [{"lba": 123, "power_on_hours": 1000}],
+            },
+            "sata_phy_event_counters": {
+                "table": [
+                    {"id": 0x001, "value": 5},
+                    {"id": 0x00A, "value": 3},
+                    {"id": 0x00B, "value": 2},
+                ]
+            },
+        }
+        fields = extract_fields(data)
+        assert fields["pending_defects_count"] == "2"
+        assert fields["sata_phy_icrc_errors"] == "5"
+        assert fields["sata_phy_crc_errors"] == "2"
+        assert fields["sata_phy_comreset_count"] == "3"
+
+    def test_missing_ata_extended_logs(self) -> None:
+        fields = extract_fields({})
+        assert fields["pending_defects_count"] == "N/A"
+        assert fields["sata_phy_icrc_errors"] == "N/A"
+        assert fields["sata_phy_crc_errors"] == "N/A"
+        assert fields["sata_phy_comreset_count"] == "N/A"
+
+    def test_scsi_health_fields(self) -> None:
+        data = {
+            "device": {"protocol": "SCSI", "type": "scsi"},
+            "scsi_model_name": "SEAGATE ST1200MM0009",
+            "scsi_revision": "0001",
+            "serial_number": "ABC123",
+            "user_capacity": {"bytes": 1_200_000_000_000},
+            "rotation_rate": 10000,
+            "smart_status": {"passed": True},
+            "temperature": {"current": 35},
+            "power_on_time": {"hours": 1000},
+            "scsi_grown_defect_list": 2,
+            "scsi_start_stop_cycle_counter": {
+                "accumulated_start_stop_cycles": 42,
+                "accumulated_load_unload_cycles": 43,
+            },
+            "scsi_percentage_used_endurance_indicator": 7,
+            "scsi_error_counter_log": {
+                "read": {
+                    "total_errors_corrected": 10,
+                    "total_uncorrected_errors": 1,
+                    "gigabytes_processed": "1000.000",
+                },
+                "write": {
+                    "total_errors_corrected": 5,
+                    "total_uncorrected_errors": 2,
+                    "gigabytes_processed": "2000.000",
+                },
+                "verify": {
+                    "total_errors_corrected": 1,
+                    "total_uncorrected_errors": 0,
+                    "gigabytes_processed": "0.000",
+                },
+            },
+            "scsi_sas_port_0": {
+                "phy_0": {
+                    "negotiated logical link rate": "phy enabled; 12 Gbps",
+                    "Invalid DWORD count": 3,
+                    "Running disparity error count": 4,
+                    "Loss of DWORD synchronization count": 5,
+                    "Phy reset problem count": 6,
+                }
+            },
+            "scsi_self_test_0": {"result": {"string": "Completed without error"}},
+        }
+        fields = extract_fields(data)
+        assert fields["model_name"] == "SEAGATE ST1200MM0009"
+        assert fields["firmware_version"] == "0001"
+        assert fields["rotation_rate_display"] == "10000 rpm"
+        assert fields["interface_speed"] == "12 Gbps"
+        assert fields["power_cycle_count"] == "42"
+        assert fields["load_cycle_count"] == "43"
+        assert fields["endurance_used_percent"] == "7"
+        assert fields["scsi_uncorrected_errors"] == "3"
+        assert fields["scsi_corrected_errors"] == "16"
+        assert fields["scsi_sas_phy_errors"] == "18"
+        assert fields["reallocated_sector_ct"] == "2"
+        assert fields["data_written_tib"] == pytest.approx(1.82)
+        assert fields["self_test_status"] == "Completed without error"
+
+    def test_scsi_missing_optional_logs(self) -> None:
+        data = {"device": {"protocol": "SCSI"}, "smart_status": {"passed": True}}
+        fields = extract_fields(data)
+        assert fields["model_name"] == "N/A"
+        assert fields["scsi_uncorrected_errors"] == "N/A"
+        assert fields["scsi_sas_phy_errors"] == "N/A"
+        assert fields["interface_speed"] == "N/A"
+        assert fields["self_test_status"] == "N/A"
 
     def test_nvme_smart_health_fields(self) -> None:
         data = {
@@ -448,6 +600,30 @@ class TestThresholds:
         alerts = check_thresholds(fields, rules)
         assert not any(a.field == "endurance_used_percent" for a in alerts)
 
+    def test_pending_defects_critical(self) -> None:
+        fields = make_fields(pending_defects_count="1")
+        rules = ThresholdRules()
+        alerts = check_thresholds(fields, rules)
+        assert any(a.field == "pending_defects_count" and a.level == "critical" for a in alerts)
+
+    def test_sata_phy_icrc_warning(self) -> None:
+        fields = make_fields(sata_phy_icrc_errors="1")
+        rules = ThresholdRules()
+        alerts = check_thresholds(fields, rules)
+        assert any(a.field == "sata_phy_icrc_errors" and a.level == "warning" for a in alerts)
+
+    def test_scsi_uncorrected_errors_critical(self) -> None:
+        fields = make_fields(scsi_uncorrected_errors="1")
+        rules = ThresholdRules()
+        alerts = check_thresholds(fields, rules)
+        assert any(a.field == "scsi_uncorrected_errors" and a.level == "critical" for a in alerts)
+
+    def test_scsi_sas_phy_errors_warning(self) -> None:
+        fields = make_fields(scsi_sas_phy_errors="1")
+        rules = ThresholdRules()
+        alerts = check_thresholds(fields, rules)
+        assert any(a.field == "scsi_sas_phy_errors" and a.level == "warning" for a in alerts)
+
     def test_multiple_alerts(self) -> None:
         fields = make_fields(
             smart_status="FAILED",
@@ -519,6 +695,9 @@ class TestDatabase:
         assert "current_pending_sector" in col_names
         assert "endurance_used_percent" in col_names
         assert "data_written_tib" in col_names
+        assert "pending_defects_count" in col_names
+        assert "sata_phy_icrc_errors" in col_names
+        assert "scsi_uncorrected_errors" in col_names
         assert "llm_analysis" in col_names
         conn.close()
 

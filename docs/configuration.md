@@ -86,6 +86,17 @@ current_pending_sector = 0
 # Alert if sectors are uncorrectable offline (possible surface damage)
 offline_uncorrectable = 0
 
+# Alert if the ATA Pending Defects log contains entries
+pending_defects_count = 0
+
+# Alert on SATA PHY ICRC/CRC errors (typically cabling or backplane issues)
+sata_phy_icrc_errors = 0
+sata_phy_crc_errors = 0
+
+# Alert on SAS uncorrected errors or SAS PHY errors
+scsi_uncorrected_errors = 0
+scsi_sas_phy_errors = 0
+
 # Alert if the reallocation event counter has increased
 reallocated_event_count = 0
 

@@ -42,6 +42,13 @@ DB_MIGRATIONS = [
     "ALTER TABLE smart_info ADD COLUMN available_spare_percent TEXT",
     "ALTER TABLE smart_info ADD COLUMN data_written_tib REAL",
     "ALTER TABLE smart_info ADD COLUMN unsafe_shutdowns TEXT",
+    "ALTER TABLE smart_info ADD COLUMN pending_defects_count TEXT",
+    "ALTER TABLE smart_info ADD COLUMN sata_phy_icrc_errors TEXT",
+    "ALTER TABLE smart_info ADD COLUMN sata_phy_crc_errors TEXT",
+    "ALTER TABLE smart_info ADD COLUMN sata_phy_comreset_count TEXT",
+    "ALTER TABLE smart_info ADD COLUMN scsi_uncorrected_errors TEXT",
+    "ALTER TABLE smart_info ADD COLUMN scsi_corrected_errors TEXT",
+    "ALTER TABLE smart_info ADD COLUMN scsi_sas_phy_errors TEXT",
     "ALTER TABLE smart_info ADD COLUMN llm_analysis TEXT",
 ]
 

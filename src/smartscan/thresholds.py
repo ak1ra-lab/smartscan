@@ -22,6 +22,16 @@ def _int_val(value: str) -> int | None:
         return None
 
 
+_CRITICAL_FIELDS = frozenset(
+    {
+        "current_pending_sector",
+        "offline_uncorrectable",
+        "pending_defects_count",
+        "scsi_uncorrected_errors",
+    }
+)
+
+
 def _self_test_healthy(status: str) -> bool:
     if status in ("N/A", ""):
         return True
@@ -76,6 +86,11 @@ def check_thresholds(fields: SmartInfo, rules: ThresholdRules) -> list[Alert]:
         "reallocated_sector_ct": _int_val(fields["reallocated_sector_ct"]),
         "current_pending_sector": _int_val(fields["current_pending_sector"]),
         "offline_uncorrectable": _int_val(fields["offline_uncorrectable"]),
+        "pending_defects_count": _int_val(fields["pending_defects_count"]),
+        "sata_phy_icrc_errors": _int_val(fields["sata_phy_icrc_errors"]),
+        "sata_phy_crc_errors": _int_val(fields["sata_phy_crc_errors"]),
+        "scsi_uncorrected_errors": _int_val(fields["scsi_uncorrected_errors"]),
+        "scsi_sas_phy_errors": _int_val(fields["scsi_sas_phy_errors"]),
         "reallocated_event_count": _int_val(fields["reallocated_event_count"]),
         "ata_smart_error_log": _int_val(fields["ata_smart_error_log"]),
         "udma_crc_error_count": _int_val(fields["udma_crc_error_count"]),
@@ -89,6 +104,11 @@ def check_thresholds(fields: SmartInfo, rules: ThresholdRules) -> list[Alert]:
         "reallocated_sector_ct": rules.reallocated_sector_ct,
         "current_pending_sector": rules.current_pending_sector,
         "offline_uncorrectable": rules.offline_uncorrectable,
+        "pending_defects_count": rules.pending_defects_count,
+        "sata_phy_icrc_errors": rules.sata_phy_icrc_errors,
+        "sata_phy_crc_errors": rules.sata_phy_crc_errors,
+        "scsi_uncorrected_errors": rules.scsi_uncorrected_errors,
+        "scsi_sas_phy_errors": rules.scsi_sas_phy_errors,
         "reallocated_event_count": rules.reallocated_event_count,
         "ata_smart_error_log": rules.ata_smart_error_log_count,
         "udma_crc_error_count": rules.udma_crc_error_count,
@@ -99,7 +119,7 @@ def check_thresholds(fields: SmartInfo, rules: ThresholdRules) -> list[Alert]:
     for field_name, threshold in thresholds.items():
         value = field_values.get(field_name)
         if value is not None and value > threshold:
-            level = "critical" if field_name in ("current_pending_sector", "offline_uncorrectable") else "warning"
+            level = "critical" if field_name in _CRITICAL_FIELDS else "warning"
             alerts.append(_build_alert(field_name, level, str(value), threshold))
 
     realloc_val = field_values.get("reallocated_sector_ct")

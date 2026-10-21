@@ -16,6 +16,8 @@ def _make_row(data: dict) -> sqlite3.Row:
             "user_capacity_bytes, user_capacity_gib, rotation_rate, interface_speed, "
             "power_on_time_hours, power_cycle_count, smart_status, temperature_celsius, "
             "endurance_used_percent, available_spare_percent, data_written_tib, unsafe_shutdowns, "
+            "pending_defects_count, sata_phy_icrc_errors, sata_phy_crc_errors, sata_phy_comreset_count, "
+            "scsi_uncorrected_errors, scsi_corrected_errors, scsi_sas_phy_errors, "
             "reallocated_sector_ct, current_pending_sector, offline_uncorrectable, "
             "reallocated_event_count, ata_smart_error_log_count, self_test_status, "
             "udma_crc_error_count, raw_read_error_rate, spin_retry_count, "
@@ -125,6 +127,8 @@ class TestRowToFields:
         assert info["available_spare_percent"] == "N/A"
         assert info["data_written_tib"] is None
         assert info["unsafe_shutdowns"] == "N/A"
+        assert info["pending_defects_count"] == "N/A"
+        assert info["scsi_uncorrected_errors"] == "N/A"
 
     def test_new_fields_preserved(self) -> None:
         row = _make_row(
@@ -145,6 +149,13 @@ class TestRowToFields:
                 "available_spare_percent": "100",
                 "data_written_tib": 12.34,
                 "unsafe_shutdowns": "7",
+                "pending_defects_count": "0",
+                "sata_phy_icrc_errors": "0",
+                "sata_phy_crc_errors": "0",
+                "sata_phy_comreset_count": "0",
+                "scsi_uncorrected_errors": "0",
+                "scsi_corrected_errors": "0",
+                "scsi_sas_phy_errors": "0",
                 "reallocated_sector_ct": "21",
                 "current_pending_sector": "0",
                 "offline_uncorrectable": "0",
@@ -169,6 +180,13 @@ class TestRowToFields:
         assert info["available_spare_percent"] == "100"
         assert info["data_written_tib"] == 12.34
         assert info["unsafe_shutdowns"] == "7"
+        assert info["pending_defects_count"] == "0"
+        assert info["sata_phy_icrc_errors"] == "0"
+        assert info["sata_phy_crc_errors"] == "0"
+        assert info["sata_phy_comreset_count"] == "0"
+        assert info["scsi_uncorrected_errors"] == "0"
+        assert info["scsi_corrected_errors"] == "0"
+        assert info["scsi_sas_phy_errors"] == "0"
 
 
 class TestPrintJsonOutput:

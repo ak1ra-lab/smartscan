@@ -4,7 +4,7 @@ A CLI tool that runs `smartctl` on all disks, extracts key SMART health metrics,
 
 ## Highlights
 
-- Collects SMART data via `smartctl --xall --json` from `/dev/disk/by-id/ata-*` and `/dev/disk/by-id/nvme-*`.
+- Collects SMART data via `smartctl --xall --json` from `/dev/disk/by-id/ata-*`, `/dev/disk/by-id/nvme-*`, and `/dev/disk/by-id/scsi-*`.
 - Displays results as Rich-styled tables with warnings for critical values.
 - Sends notifications via Telegram, DingTalk, or Feishu when threshold alerts trigger.
 - Stores historical data in SQLite and compacts redundant records automatically (`query` subcommand).

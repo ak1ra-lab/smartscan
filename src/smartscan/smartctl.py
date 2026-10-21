@@ -25,6 +25,7 @@ SOURCE_DIRS = ("by-id", "by-path", "by-diskseq")
 
 _SYSFS_NVME = Path("/sys/class/nvme")
 _NVME_NAMESPACE_RE = re.compile(r"(nvme\d+)(?:c\d+)?n\d+")
+_SCSI_LINK_RATE_RE = re.compile(r"(\d+(?:\.\d+)?\s*(?:Gbps|Gbit/s))")
 
 
 def _compile_excludes(patterns: list[str] | None) -> list[re.Pattern[str]]:
@@ -89,7 +90,7 @@ def check_smartctl_error(returncode: int | None) -> None:
 
 
 def find_disks(pattern: str, exclude_patterns: list[str] | None = None) -> list[Path]:
-    """Discover ATA and NVMe disk devices under ``/dev/disk/by-id/`` matching a regex pattern.
+    """Discover ATA, NVMe, and SCSI disk devices under ``/dev/disk/by-id/`` matching a regex pattern.
 
     Multiple by-id entries may point to the same physical block device
     (e.g. ``nvme-eui.*`` and ``nvme-Model_Serial`` both resolve to the same
@@ -119,13 +120,15 @@ def find_disks(pattern: str, exclude_patterns: list[str] | None = None) -> list[
         if not entry.is_symlink():
             continue
         name = entry.name
-        if not name.startswith(("ata-", "nvme-")):
+        if not name.startswith(("ata-", "nvme-", "scsi-")):
             continue
         if re.search(r"-part\d+$", name):
             continue
         if not compiled.search(name):
             continue
         target = entry.resolve()
+        if name.startswith("scsi-") and (not target.is_block_device() or target.name.startswith(("sr", "st"))):
+            continue
         if exclude_compiled and is_excluded(name, str(target), exclude_compiled):
             continue
         if target in by_target:
@@ -243,6 +246,10 @@ def _ata_error_log_count(data: dict[str, Any]) -> str:
 _NVME_DATA_UNIT_BYTES = 1000 * 512
 _TIB_BYTES = 2**40
 
+_SATA_PHY_ICRC_ERROR = 0x001
+_SATA_PHY_COMRESET = 0x00A
+_SATA_PHY_CRC_ERROR = 0x00B
+
 
 def _int_or_none(value: Any) -> int | None:
     if isinstance(value, bool):
@@ -278,6 +285,95 @@ def _devstat_value(data: dict[str, Any], name: str) -> int | None:
             if isinstance(entry, dict) and entry.get("name") == name:
                 return _int_or_none(entry.get("value"))
     return None
+
+
+def _pending_defects_count(data: dict[str, Any]) -> str:
+    count = safe_get(data, "ata_pending_defects_log", "count", default=None)
+    return str(count) if count is not None else "N/A"
+
+
+def _sata_phy_counter(data: dict[str, Any], counter_id: int) -> str:
+    table = safe_get(data, "sata_phy_event_counters", "table", default=None)
+    if not isinstance(table, list):
+        return "N/A"
+    for entry in table:
+        if isinstance(entry, dict) and _int_or_none(entry.get("id")) == counter_id:
+            value = _int_or_none(entry.get("value"))
+            if value is not None:
+                return str(value)
+    return "N/A"
+
+
+_SCSI_ERROR_KINDS = ("read", "write", "verify")
+
+
+def _scsi_error_sum(data: dict[str, Any], key: str) -> str:
+    total = 0
+    found = False
+    for kind in _SCSI_ERROR_KINDS:
+        value = _int_or_none(safe_get(data, "scsi_error_counter_log", kind, key, default=None))
+        if value is not None:
+            total += value
+            found = True
+    return str(total) if found else "N/A"
+
+
+def _scsi_sas_phy_errors(data: dict[str, Any]) -> str:
+    total = 0
+    found = False
+    counters = (
+        "Invalid DWORD count",
+        "Running disparity error count",
+        "Loss of DWORD synchronization count",
+        "Phy reset problem count",
+    )
+    for port_key, port in data.items():
+        if not port_key.startswith("scsi_sas_port_") or not isinstance(port, dict):
+            continue
+        for phy_key, phy in port.items():
+            if not phy_key.startswith("phy_") or not isinstance(phy, dict):
+                continue
+            for counter in counters:
+                value = _int_or_none(phy.get(counter))
+                if value is not None:
+                    total += value
+                    found = True
+    return str(total) if found else "N/A"
+
+
+def _scsi_link_rate(data: dict[str, Any]) -> str:
+    for port_key in sorted(key for key in data if key.startswith("scsi_sas_port_")):
+        port = data[port_key]
+        if not isinstance(port, dict):
+            continue
+        for phy_key in sorted(key for key in port if key.startswith("phy_")):
+            phy = port[phy_key]
+            if not isinstance(phy, dict):
+                continue
+            rate = phy.get("negotiated logical link rate")
+            if isinstance(rate, str) and rate:
+                match = _SCSI_LINK_RATE_RE.search(rate)
+                return match.group(1) if match else rate
+    return "N/A"
+
+
+def _scsi_self_test_status(data: dict[str, Any]) -> str:
+    entry = data.get("scsi_self_test_0")
+    if not isinstance(entry, dict):
+        return "N/A"
+    if entry.get("self_test_in_progress"):
+        return "Self-test in progress"
+    result = safe_get(entry, "result", "string", default=None)
+    return str(result) if result is not None else "N/A"
+
+
+def _scsi_data_written_tib(data: dict[str, Any]) -> float | None:
+    value = safe_get(data, "scsi_error_counter_log", "write", "gigabytes_processed", default=None)
+    try:
+        gigabytes = float(value)
+    except (TypeError, ValueError):
+        return None
+    return round(gigabytes * 1_000_000_000 / _TIB_BYTES, 2)
 
 
 def _ata_endurance_used(data: dict[str, Any]) -> str:
@@ -347,6 +443,13 @@ def _extract_nvme_health(data: dict[str, Any]) -> SmartInfo:
         available_spare_percent=str(safe_get(log, "available_spare", default="N/A")),
         data_written_tib=_nvme_data_units_to_tib(safe_get(log, "data_units_written", default=None)),
         unsafe_shutdowns=str(safe_get(log, "unsafe_shutdowns", default="N/A")),
+        pending_defects_count="N/A",
+        sata_phy_icrc_errors="N/A",
+        sata_phy_crc_errors="N/A",
+        sata_phy_comreset_count="N/A",
+        scsi_uncorrected_errors="N/A",
+        scsi_corrected_errors="N/A",
+        scsi_sas_phy_errors="N/A",
         reallocated_sector_ct=str(safe_get(log, "media_errors", default="N/A")),
         current_pending_sector="N/A",
         offline_uncorrectable="N/A",
@@ -384,6 +487,13 @@ def _extract_ata_health(data: dict[str, Any]) -> SmartInfo:
         available_spare_percent=str(safe_get(data, "spare_available", "current_percent", default="N/A")),
         data_written_tib=_ata_data_written_tib(data),
         unsafe_shutdowns="N/A",
+        pending_defects_count=_pending_defects_count(data),
+        sata_phy_icrc_errors=_sata_phy_counter(data, _SATA_PHY_ICRC_ERROR),
+        sata_phy_crc_errors=_sata_phy_counter(data, _SATA_PHY_CRC_ERROR),
+        sata_phy_comreset_count=_sata_phy_counter(data, _SATA_PHY_COMRESET),
+        scsi_uncorrected_errors="N/A",
+        scsi_corrected_errors="N/A",
+        scsi_sas_phy_errors="N/A",
         reallocated_sector_ct=_find_attr(data, "Reallocated_Sector_Ct"),
         current_pending_sector=_find_attr(data, "Current_Pending_Sector"),
         offline_uncorrectable=_find_attr(data, "Offline_Uncorrectable"),
@@ -396,6 +506,57 @@ def _extract_ata_health(data: dict[str, Any]) -> SmartInfo:
         power_off_retract_count=_find_attr(data, "Power-Off_Retract_Count"),
         load_cycle_count=_find_attr(data, "Load_Cycle_Count"),
         helium_level=_find_attr(data, "Helium_Level"),
+    )
+
+
+def _extract_scsi_health(data: dict[str, Any]) -> SmartInfo:
+    smart_passed = safe_get(data, "smart_status", "passed", default=False)
+    smart_status = "PASSED" if smart_passed is True else "FAILED"
+
+    model_name = safe_get(data, "model_name", default=None)
+    if model_name is None:
+        model_name = safe_get(data, "scsi_model_name", default="N/A")
+    firmware_version = safe_get(data, "firmware_version", default=None)
+    if firmware_version is None:
+        firmware_version = safe_get(data, "scsi_revision", default="N/A")
+
+    return SmartInfo(
+        model_family=str(safe_get(data, "model_family")),
+        model_name=str(model_name),
+        serial_number=str(safe_get(data, "serial_number")),
+        firmware_version=str(firmware_version),
+        user_capacity_bytes=_parse_capacity_bytes(data),
+        user_capacity_gib=_parse_capacity_gib(data),
+        rotation_rate=str(safe_get(data, "rotation_rate")),
+        rotation_rate_display=rotation_display(str(safe_get(data, "rotation_rate"))),
+        interface_speed=str(safe_get(data, "interface_speed", "current", "string", default=_scsi_link_rate(data))),
+        power_on_time=str(safe_get(data, "power_on_time", "hours")),
+        power_cycle_count=str(safe_get(data, "scsi_start_stop_cycle_counter", "accumulated_start_stop_cycles")),
+        smart_status=smart_status,
+        temperature=str(safe_get(data, "temperature", "current")),
+        endurance_used_percent=str(safe_get(data, "scsi_percentage_used_endurance_indicator")),
+        available_spare_percent="N/A",
+        data_written_tib=_scsi_data_written_tib(data),
+        unsafe_shutdowns="N/A",
+        pending_defects_count="N/A",
+        sata_phy_icrc_errors="N/A",
+        sata_phy_crc_errors="N/A",
+        sata_phy_comreset_count="N/A",
+        scsi_uncorrected_errors=_scsi_error_sum(data, "total_uncorrected_errors"),
+        scsi_corrected_errors=_scsi_error_sum(data, "total_errors_corrected"),
+        scsi_sas_phy_errors=_scsi_sas_phy_errors(data),
+        reallocated_sector_ct=str(safe_get(data, "scsi_grown_defect_list")),
+        current_pending_sector="N/A",
+        offline_uncorrectable="N/A",
+        reallocated_event_count="N/A",
+        ata_smart_error_log="N/A",
+        self_test_status=_scsi_self_test_status(data),
+        udma_crc_error_count="N/A",
+        raw_read_error_rate="N/A",
+        spin_retry_count="N/A",
+        power_off_retract_count="N/A",
+        load_cycle_count=str(safe_get(data, "scsi_start_stop_cycle_counter", "accumulated_load_unload_cycles")),
+        helium_level="N/A",
     )
 
 
@@ -417,6 +578,9 @@ def extract_fields(data: dict[str, Any]) -> SmartInfo:
     if "nvme_smart_health_information_log" in data:
         logging.debug("Extracting NVMe health fields")
         return _extract_nvme_health(data)
+    if safe_get(data, "device", "protocol", default=None) == "SCSI":
+        logging.debug("Extracting SCSI health fields")
+        return _extract_scsi_health(data)
     logging.debug("Extracting ATA health fields")
     return _extract_ata_health(data)
 
