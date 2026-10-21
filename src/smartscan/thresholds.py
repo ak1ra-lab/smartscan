@@ -26,6 +26,8 @@ def _self_test_healthy(status: str) -> bool:
     if status in ("N/A", ""):
         return True
     lowered = status.lower()
+    if "in progress" in lowered or "no self-test" in lowered:
+        return True
     if "without error" in lowered:
         return True
     if any(word in lowered for word in ("fail", "error", "abort", "interrupt")):
@@ -70,6 +72,7 @@ def check_thresholds(fields: SmartInfo, rules: ThresholdRules) -> list[Alert]:
 
     field_values: dict[str, int | None] = {
         "temperature": _int_val(fields["temperature"]),
+        "endurance_used_percent": _int_val(fields["endurance_used_percent"]),
         "reallocated_sector_ct": _int_val(fields["reallocated_sector_ct"]),
         "current_pending_sector": _int_val(fields["current_pending_sector"]),
         "offline_uncorrectable": _int_val(fields["offline_uncorrectable"]),
@@ -82,6 +85,7 @@ def check_thresholds(fields: SmartInfo, rules: ThresholdRules) -> list[Alert]:
 
     thresholds: dict[str, int] = {
         "temperature": rules.temperature_celsius,
+        "endurance_used_percent": rules.endurance_used_percent,
         "reallocated_sector_ct": rules.reallocated_sector_ct,
         "current_pending_sector": rules.current_pending_sector,
         "offline_uncorrectable": rules.offline_uncorrectable,

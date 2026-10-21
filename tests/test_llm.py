@@ -307,6 +307,16 @@ class TestLangInstruction:
         assert lang_instruction("fr") is None
 
 
+class TestBuildPrompt:
+    def test_none_numeric_field_renders_as_na(self) -> None:
+        fields = make_fields(data_written_tib=None)
+
+        prompt = build_prompt(fields, "  (none)")
+
+        assert "None" not in prompt
+        assert "Data Written:         N/A" in prompt
+
+
 class TestBuildBatchPrompt:
     def test_includes_disk_details_and_errors(self) -> None:
         entry = DiskEntry(

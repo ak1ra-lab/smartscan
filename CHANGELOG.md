@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Extract NVMe endurance used, available spare, data written, and unsafe shutdowns from the SMART/Health log
+- Extract ATA endurance and data-written values from Device Statistics collected by `--xall`
+- Add `thresholds.endurance_used_percent` (default `90`) and report SSD endurance in tables, JSON, and LLM prompts
+
+### Changed
+
+- Collect with `smartctl --xall --json` instead of `--all --json`; ATA disks now include device statistics, pending defects, SATA PHY counters, and extended error/self-test logs
+
+### Fixed
+
+- ATA error-log counts are read from the extended log when available, falling back to the summary log
+- NVMe self-test status is read from `nvme_self_test_log` instead of the SMART/Health log
+- In-progress self-tests no longer raise a false warning
+- NVMe interface speed is read from sysfs when smartctl does not report it
+- Querying a database created by an older version no longer fails when newer columns are missing
+
 ## [0.5.0] - 2026-10-21
 
 ### Changed

@@ -85,15 +85,22 @@ class TestHasSignificantChange:
         assert "power_cycle_count" in TIME_SERIES_FIELDS
         assert "load_cycle_count" in TIME_SERIES_FIELDS
         assert "power_off_retract_count" in TIME_SERIES_FIELDS
+        assert "endurance_used_percent" in TIME_SERIES_FIELDS
+        assert "data_written_tib" in TIME_SERIES_FIELDS
+        assert "unsafe_shutdowns" in TIME_SERIES_FIELDS
         assert "reallocated_sector_ct" not in TIME_SERIES_FIELDS
 
     def test_monitored_field_set_membership(self) -> None:
         assert "smart_status" in MONITORED_FIELDS
         assert "temperature" in MONITORED_FIELDS
+        assert "endurance_used_percent" in MONITORED_FIELDS
+        assert "available_spare_percent" in MONITORED_FIELDS
+        assert "unsafe_shutdowns" in MONITORED_FIELDS
         assert "reallocated_sector_ct" in MONITORED_FIELDS
         assert "current_pending_sector" in MONITORED_FIELDS
         assert "offline_uncorrectable" in MONITORED_FIELDS
         assert "helium_level" in MONITORED_FIELDS
+        assert "data_written_tib" not in MONITORED_FIELDS
         assert "power_on_time" not in MONITORED_FIELDS
 
 

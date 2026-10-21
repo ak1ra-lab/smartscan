@@ -38,6 +38,10 @@ DB_MIGRATIONS = [
     "ALTER TABLE smart_info ADD COLUMN power_off_retract_count TEXT",
     "ALTER TABLE smart_info ADD COLUMN load_cycle_count TEXT",
     "ALTER TABLE smart_info ADD COLUMN helium_level TEXT",
+    "ALTER TABLE smart_info ADD COLUMN endurance_used_percent TEXT",
+    "ALTER TABLE smart_info ADD COLUMN available_spare_percent TEXT",
+    "ALTER TABLE smart_info ADD COLUMN data_written_tib REAL",
+    "ALTER TABLE smart_info ADD COLUMN unsafe_shutdowns TEXT",
     "ALTER TABLE smart_info ADD COLUMN llm_analysis TEXT",
 ]
 

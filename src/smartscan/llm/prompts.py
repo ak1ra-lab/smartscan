@@ -11,6 +11,7 @@ from ..fields import (
     MONITORED_FIELDS,
     SECONDARY_PROMPT_FIELDS,
     TIME_SERIES_FIELDS,
+    FieldDef,
     get_field,
 )
 from ..models import SmartInfo
@@ -19,29 +20,38 @@ from ..smartctl import smartctl_error_lines
 from .providers import lang_instruction
 
 
+def _format_value(field: FieldDef, value: Any) -> str:
+    if value is None:
+        return "N/A"
+    if field.format_label:
+        return field.format_label.format(value=value)
+    return str(value)
+
+
 def _format_prompt_fields(fields: SmartInfo, indent: str = "  ") -> list[str]:
     """Render BASIC/CRITICAL/SECONDARY prompt fields with shared formatting."""
     lines: list[str] = []
 
     for f in BASIC_PROMPT_FIELDS:
-        value = get_field(fields, f.key)
         label = f.prompt_label or f.key
-        if f.key == "user_capacity_gib" and value is None:
-            lines.append(f"{indent}{label}:      N/A")
-        elif f.format_label:
-            lines.append(f"{indent}{label}: {f.format_label.format(value=value)}")
+        value = get_field(fields, f.key)
+        formatted = _format_value(f, value)
+        if value is None:
+            lines.append(f"{indent}{label}:      {formatted}")
         else:
-            lines.append(f"{indent}{label}: {value}")
+            lines.append(f"{indent}{label}: {formatted}")
 
     lines.append("")
     lines.append(f"{indent}Critical Attributes:")
     for f in CRITICAL_PROMPT_FIELDS:
-        lines.append(f"{indent}  {f.prompt_label or f.key}:     {get_field(fields, f.key)}")
+        label = f.prompt_label or f.key
+        lines.append(f"{indent}  {label}:     {_format_value(f, get_field(fields, f.key))}")
 
     lines.append("")
     lines.append(f"{indent}Secondary Attributes:")
     for f in SECONDARY_PROMPT_FIELDS:
-        lines.append(f"{indent}  {f.prompt_label or f.key}:         {get_field(fields, f.key)}")
+        label = f.prompt_label or f.key
+        lines.append(f"{indent}  {label}:         {_format_value(f, get_field(fields, f.key))}")
 
     return lines
 

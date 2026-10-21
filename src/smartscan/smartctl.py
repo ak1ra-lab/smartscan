@@ -23,6 +23,9 @@ from .utils import (
 
 SOURCE_DIRS = ("by-id", "by-path", "by-diskseq")
 
+_SYSFS_NVME = Path("/sys/class/nvme")
+_NVME_NAMESPACE_RE = re.compile(r"(nvme\d+)(?:c\d+)?n\d+")
+
 
 def _compile_excludes(patterns: list[str] | None) -> list[re.Pattern[str]]:
     try:
@@ -150,8 +153,43 @@ def find_disks(pattern: str, exclude_patterns: list[str] | None = None) -> list[
     return disks
 
 
+def _read_nvme_link_speed(disk_path: Path) -> str | None:
+    """Return the current PCIe link speed and width for an NVMe namespace, if available."""
+    try:
+        name = disk_path.resolve().name
+    except (OSError, RuntimeError):
+        return None
+
+    match = _NVME_NAMESPACE_RE.fullmatch(name)
+    if match is None:
+        return None
+
+    device = _SYSFS_NVME / match.group(1) / "device"
+    try:
+        speed = (device / "current_link_speed").read_text(encoding="utf-8").strip()
+        width = (device / "current_link_width").read_text(encoding="utf-8").strip()
+    except OSError:
+        return None
+
+    if not speed or not width:
+        return None
+    return f"{speed} x{width}"
+
+
+def _add_nvme_link_speed(data: dict[str, Any], disk_path: Path) -> None:
+    """Add NVMe PCIe link speed to raw smartctl data when smartctl omitted it."""
+    if "nvme_smart_health_information_log" not in data:
+        return
+    speed = _read_nvme_link_speed(disk_path)
+    if speed is not None:
+        data.setdefault("interface_speed", {"current": {"string": speed}})
+
+
 def run_smartctl(disk_path: Path) -> tuple[dict[str, Any], int]:
-    """Run ``smartctl --all --json`` against a disk and return parsed JSON and exit code.
+    """Run ``smartctl --xall --json`` against a disk and return parsed JSON and exit code.
+
+    ``--xall`` is a superset of ``--all`` for ATA disks and identical to
+    ``--all`` for NVMe disks.
 
     Raises:
         SmartctlError: If the smartctl binary is not found.
@@ -159,7 +197,7 @@ def run_smartctl(disk_path: Path) -> tuple[dict[str, Any], int]:
     logging.debug("Running smartctl on %s", disk_path)
     try:
         result = subprocess.run(
-            ["smartctl", "--all", "--json", str(disk_path)],
+            ["smartctl", "--xall", "--json", str(disk_path)],
             capture_output=True,
             text=True,
             timeout=30,
@@ -178,6 +216,8 @@ def run_smartctl(disk_path: Path) -> tuple[dict[str, Any], int]:
         logging.error("Failed to parse smartctl JSON output for %s", disk_path)
         data = {}
 
+    _add_nvme_link_speed(data, disk_path)
+
     return data, result.returncode
 
 
@@ -189,6 +229,98 @@ _ATA_ATTRIBUTES = (
 
 def _find_attr(data: dict[str, Any], name: str) -> str:
     return find_in_table(data, _ATA_ATTRIBUTES, "name", name, ("raw", "string"))
+
+
+def _ata_error_log_count(data: dict[str, Any]) -> str:
+    """Return the ATA error count, preferring the extended log over the summary log."""
+    for section in ("extended", "summary"):
+        count = safe_get(data, "ata_smart_error_log", section, "count", default=None)
+        if count is not None:
+            return str(count)
+    return "0"
+
+
+_NVME_DATA_UNIT_BYTES = 1000 * 512
+_TIB_BYTES = 2**40
+
+
+def _int_or_none(value: Any) -> int | None:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str):
+        try:
+            return int(value)
+        except ValueError:
+            return None
+    return None
+
+
+def _nvme_data_units_to_tib(value: Any) -> float | None:
+    units = _int_or_none(value)
+    if units is None:
+        return None
+    return round(units * _NVME_DATA_UNIT_BYTES / _TIB_BYTES, 2)
+
+
+def _devstat_value(data: dict[str, Any], name: str) -> int | None:
+    pages = safe_get(data, "ata_device_statistics", "pages", default=None)
+    if not isinstance(pages, list):
+        return None
+    for page in pages:
+        if not isinstance(page, dict):
+            continue
+        table = page.get("table")
+        if not isinstance(table, list):
+            continue
+        for entry in table:
+            if isinstance(entry, dict) and entry.get("name") == name:
+                return _int_or_none(entry.get("value"))
+    return None
+
+
+def _ata_endurance_used(data: dict[str, Any]) -> str:
+    current = safe_get(data, "endurance_used", "current_percent", default=None)
+    if current is not None:
+        return str(current)
+    value = _devstat_value(data, "Percentage Used Endurance Indicator")
+    return str(value) if value is not None else "N/A"
+
+
+def _ata_data_written_tib(data: dict[str, Any]) -> float | None:
+    sectors = _devstat_value(data, "Logical Sectors Written")
+    block_size = _int_or_none(safe_get(data, "logical_block_size", default=None))
+    if sectors is None or block_size is None:
+        return None
+    return round(sectors * block_size / _TIB_BYTES, 2)
+
+
+def _nvme_self_test_status(data: dict[str, Any]) -> str:
+    current = safe_get(
+        data,
+        "nvme_self_test_log",
+        "current_self_test_operation",
+        "string",
+        default=None,
+    )
+    if isinstance(current, str) and "in progress" in current.lower() and "no self-test" not in current.lower():
+        return current
+
+    table = safe_get(data, "nvme_self_test_log", "table", default=None)
+    if isinstance(table, dict):
+        latest = next(iter(table.values()), None)
+    elif isinstance(table, list):
+        latest = table[0] if table else None
+    else:
+        latest = None
+
+    if latest is not None:
+        result = safe_get(latest, "self_test_result", "string", default=None)
+        if result is not None:
+            return str(result)
+
+    return str(current) if current is not None else "N/A"
 
 
 def _extract_nvme_health(data: dict[str, Any]) -> SmartInfo:
@@ -211,12 +343,16 @@ def _extract_nvme_health(data: dict[str, Any]) -> SmartInfo:
         power_cycle_count=str(safe_get(log, "power_cycles", default="N/A")),
         smart_status=smart_status,
         temperature=str(safe_get(log, "temperature", default="N/A")),
+        endurance_used_percent=str(safe_get(log, "percentage_used", default="N/A")),
+        available_spare_percent=str(safe_get(log, "available_spare", default="N/A")),
+        data_written_tib=_nvme_data_units_to_tib(safe_get(log, "data_units_written", default=None)),
+        unsafe_shutdowns=str(safe_get(log, "unsafe_shutdowns", default="N/A")),
         reallocated_sector_ct=str(safe_get(log, "media_errors", default="N/A")),
         current_pending_sector="N/A",
         offline_uncorrectable="N/A",
         reallocated_event_count="N/A",
         ata_smart_error_log=str(safe_get(log, "num_err_log_entries", default="0")),
-        self_test_status=str(safe_get(log, "self_test", "status", "string")),
+        self_test_status=_nvme_self_test_status(data),
         udma_crc_error_count="N/A",
         raw_read_error_rate="N/A",
         spin_retry_count="N/A",
@@ -244,11 +380,15 @@ def _extract_ata_health(data: dict[str, Any]) -> SmartInfo:
         power_cycle_count=str(safe_get(data, "power_cycle_count")),
         smart_status=smart_status,
         temperature=str(safe_get(data, "temperature", "current")),
+        endurance_used_percent=_ata_endurance_used(data),
+        available_spare_percent=str(safe_get(data, "spare_available", "current_percent", default="N/A")),
+        data_written_tib=_ata_data_written_tib(data),
+        unsafe_shutdowns="N/A",
         reallocated_sector_ct=_find_attr(data, "Reallocated_Sector_Ct"),
         current_pending_sector=_find_attr(data, "Current_Pending_Sector"),
         offline_uncorrectable=_find_attr(data, "Offline_Uncorrectable"),
         reallocated_event_count=_find_attr(data, "Reallocated_Event_Count"),
-        ata_smart_error_log=str(safe_get(data, "ata_smart_error_log", "summary", "count", default="0")),
+        ata_smart_error_log=_ata_error_log_count(data),
         self_test_status=str(safe_get(data, "ata_smart_data", "self_test", "status", "string")),
         udma_crc_error_count=_find_attr(data, "UDMA_CRC_Error_Count"),
         raw_read_error_rate=_find_attr(data, "Raw_Read_Error_Rate"),

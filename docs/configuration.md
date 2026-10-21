@@ -74,6 +74,9 @@ enabled = true
 # Alert if disk temperature exceeds this value (Celsius)
 temperature_celsius = 50
 
+# Alert if SSD endurance used exceeds this percentage
+endurance_used_percent = 90
+
 # Alert if any sectors have been reallocated (surface defects)
 reallocated_sector_ct = 0
 

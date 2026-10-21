@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+from subprocess import CompletedProcess
 from unittest.mock import patch
 
 import pytest
@@ -8,7 +10,7 @@ from conftest import make_fields
 from smartscan.database import init_db, parse_date, query_smart_info, save_to_db
 from smartscan.exceptions import InvalidDateError
 from smartscan.models import ThresholdRules
-from smartscan.smartctl import extract_fields, find_in_table, safe_get
+from smartscan.smartctl import extract_fields, find_in_table, run_smartctl, safe_get
 from smartscan.thresholds import check_thresholds
 
 
@@ -98,6 +100,40 @@ class TestFindInTable:
         assert result == "0"
 
 
+class TestRunSmartctl:
+    def test_uses_xall(self) -> None:
+        completed = CompletedProcess(
+            args=[],
+            returncode=0,
+            stdout='{"smart_status": {"passed": true}}',
+        )
+        with patch("smartscan.smartctl.subprocess.run", return_value=completed) as run:
+            data, returncode = run_smartctl(Path("/dev/sda"))
+
+        assert data == {"smart_status": {"passed": True}}
+        assert returncode == 0
+        assert run.call_args.args[0] == ["smartctl", "--xall", "--json", "/dev/sda"]
+
+    def test_adds_nvme_link_speed_from_sysfs(self, tmp_path: Path) -> None:
+        sysfs = tmp_path / "nvme"
+        device = sysfs / "nvme0" / "device"
+        device.mkdir(parents=True)
+        (device / "current_link_speed").write_text("8.0 GT/s PCIe\n", encoding="utf-8")
+        (device / "current_link_width").write_text("4\n", encoding="utf-8")
+        completed = CompletedProcess(
+            args=[],
+            returncode=0,
+            stdout='{"nvme_smart_health_information_log": {}}',
+        )
+        with (
+            patch("smartscan.smartctl.subprocess.run", return_value=completed),
+            patch("smartscan.smartctl._SYSFS_NVME", sysfs),
+        ):
+            data, _ = run_smartctl(tmp_path / "dev" / "nvme0n1")
+
+        assert data["interface_speed"]["current"]["string"] == "8.0 GT/s PCIe x4"
+
+
 class TestExtractFields:
     def test_extract_basic_fields(self) -> None:
         data = {
@@ -130,6 +166,81 @@ class TestExtractFields:
         assert fields["temperature"] == "35"
         assert fields["ata_smart_error_log"] == "0"
         assert fields["self_test_status"] == "Completed without error"
+
+    def test_extended_error_log_count(self) -> None:
+        data = {"ata_smart_error_log": {"extended": {"count": 7}, "summary": {"count": 3}}}
+        fields = extract_fields(data)
+        assert fields["ata_smart_error_log"] == "7"
+
+    def test_error_log_falls_back_to_summary(self) -> None:
+        data = {"ata_smart_error_log": {"summary": {"count": 3}}}
+        fields = extract_fields(data)
+        assert fields["ata_smart_error_log"] == "3"
+
+    def test_ata_device_statistics_fields(self) -> None:
+        data = {
+            "logical_block_size": 512,
+            "ata_device_statistics": {
+                "pages": [
+                    {
+                        "number": 1,
+                        "table": [
+                            {"name": "Logical Sectors Written", "value": 2_147_483_648},
+                        ],
+                    },
+                    {
+                        "number": 7,
+                        "table": [
+                            {"name": "Percentage Used Endurance Indicator", "value": 12},
+                        ],
+                    },
+                ]
+            },
+        }
+        fields = extract_fields(data)
+        assert fields["endurance_used_percent"] == "12"
+        assert fields["data_written_tib"] == pytest.approx(1.0)
+
+    def test_nvme_smart_health_fields(self) -> None:
+        data = {
+            "model_name": "Micron_7300_MTFDHBA960TDF",
+            "user_capacity": {"bytes": 960197124096},
+            "smart_status": {"passed": True},
+            "nvme_smart_health_information_log": {
+                "percentage_used": 4,
+                "available_spare": 100,
+                "data_units_written": 123_456_789,
+                "unsafe_shutdowns": 12,
+                "power_on_hours": 1000,
+                "power_cycles": 20,
+                "temperature": 35,
+                "media_errors": 0,
+                "num_err_log_entries": 0,
+            },
+            "nvme_self_test_log": {
+                "current_self_test_operation": {"string": "No self-test in progress"},
+                "table": {"0": {"self_test_result": {"string": "Completed without error"}}},
+            },
+        }
+        fields = extract_fields(data)
+        assert fields["endurance_used_percent"] == "4"
+        assert fields["available_spare_percent"] == "100"
+        assert fields["data_written_tib"] == pytest.approx(57.49)
+        assert fields["unsafe_shutdowns"] == "12"
+        assert fields["self_test_status"] == "Completed without error"
+
+    def test_nvme_self_test_in_progress(self) -> None:
+        data = {
+            "nvme_smart_health_information_log": {},
+            "nvme_self_test_log": {"current_self_test_operation": {"string": "Short self-test in progress"}},
+        }
+        fields = extract_fields(data)
+        assert fields["self_test_status"] == "Short self-test in progress"
+
+    def test_nvme_self_test_without_log(self) -> None:
+        data = {"nvme_smart_health_information_log": {}}
+        fields = extract_fields(data)
+        assert fields["self_test_status"] == "N/A"
 
     def test_smart_status_failed(self) -> None:
         data = {
@@ -319,6 +430,24 @@ class TestThresholds:
         alerts = check_thresholds(fields, rules)
         assert any(a.field == "self_test_status" and a.level == "warning" for a in alerts)
 
+    def test_self_test_in_progress_is_healthy(self) -> None:
+        fields = make_fields(self_test_status="Extended self-test in progress")
+        rules = ThresholdRules()
+        alerts = check_thresholds(fields, rules)
+        assert not any(a.field == "self_test_status" for a in alerts)
+
+    def test_endurance_used_warning(self) -> None:
+        fields = make_fields(endurance_used_percent="95")
+        rules = ThresholdRules()
+        alerts = check_thresholds(fields, rules)
+        assert any(a.field == "endurance_used_percent" and a.level == "warning" for a in alerts)
+
+    def test_endurance_used_ok_below_threshold(self) -> None:
+        fields = make_fields(endurance_used_percent="50")
+        rules = ThresholdRules()
+        alerts = check_thresholds(fields, rules)
+        assert not any(a.field == "endurance_used_percent" for a in alerts)
+
     def test_multiple_alerts(self) -> None:
         fields = make_fields(
             smart_status="FAILED",
@@ -388,6 +517,8 @@ class TestDatabase:
         col_names = [row["name"] for row in columns]
         assert "smart_status" in col_names
         assert "current_pending_sector" in col_names
+        assert "endurance_used_percent" in col_names
+        assert "data_written_tib" in col_names
         assert "llm_analysis" in col_names
         conn.close()
 

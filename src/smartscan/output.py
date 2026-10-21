@@ -198,7 +198,7 @@ def print_lsblk_json(devices: list[dict[str, object]]) -> None:
 
 
 def _safe_default(field_def: FieldDef, col_val: Any) -> Any:
-    if field_def.key == "user_capacity_gib":
+    if field_def.db_type == "REAL":
         return col_val
     if field_def.key == "user_capacity_bytes":
         return int(col_val) if col_val is not None else 0
@@ -211,6 +211,10 @@ def _safe_default(field_def: FieldDef, col_val: Any) -> Any:
 
 def row_to_fields(row: sqlite3.Row) -> SmartInfo:
     """Convert a database row into the typed :class:`SmartInfo` dict, restoring display values."""
-    fields = {field.key: _safe_default(field, row[field.db_column]) for field in ALL_HEALTH_FIELDS}
+    row_keys = set(row.keys())
+    fields = {
+        field.key: _safe_default(field, row[field.db_column] if field.db_column in row_keys else None)
+        for field in ALL_HEALTH_FIELDS
+    }
     fields["rotation_rate_display"] = rotation_display(str(fields["rotation_rate"]))
     return cast(SmartInfo, fields)

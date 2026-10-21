@@ -15,6 +15,7 @@ def _make_row(data: dict) -> sqlite3.Row:
             "CREATE TABLE t (model_family, model_name, serial_number, firmware_version, "
             "user_capacity_bytes, user_capacity_gib, rotation_rate, interface_speed, "
             "power_on_time_hours, power_cycle_count, smart_status, temperature_celsius, "
+            "endurance_used_percent, available_spare_percent, data_written_tib, unsafe_shutdowns, "
             "reallocated_sector_ct, current_pending_sector, offline_uncorrectable, "
             "reallocated_event_count, ata_smart_error_log_count, self_test_status, "
             "udma_crc_error_count, raw_read_error_rate, spin_retry_count, "
@@ -107,6 +108,23 @@ class TestRowToFields:
 
         assert info["user_capacity_bytes"] == 0
         assert info["user_capacity_gib"] is None
+        assert info["data_written_tib"] is None
+
+    def test_missing_columns_use_field_defaults(self) -> None:
+        conn = sqlite3.connect(":memory:")
+        try:
+            conn.execute("CREATE TABLE t (model_name, smart_status)")
+            conn.execute("INSERT INTO t VALUES ('Old', 'PASSED')")
+            conn.row_factory = sqlite3.Row
+            row = conn.execute("SELECT * FROM t").fetchone()
+            info = row_to_fields(row)
+        finally:
+            conn.close()
+
+        assert info["endurance_used_percent"] == "N/A"
+        assert info["available_spare_percent"] == "N/A"
+        assert info["data_written_tib"] is None
+        assert info["unsafe_shutdowns"] == "N/A"
 
     def test_new_fields_preserved(self) -> None:
         row = _make_row(
@@ -123,6 +141,10 @@ class TestRowToFields:
                 "power_cycle_count": "31",
                 "smart_status": "PASSED",
                 "temperature_celsius": "33",
+                "endurance_used_percent": "4",
+                "available_spare_percent": "100",
+                "data_written_tib": 12.34,
+                "unsafe_shutdowns": "7",
                 "reallocated_sector_ct": "21",
                 "current_pending_sector": "0",
                 "offline_uncorrectable": "0",
@@ -143,6 +165,10 @@ class TestRowToFields:
         assert info["reallocated_event_count"] == "21"
         assert info["power_off_retract_count"] == "1127"
         assert info["helium_level"] == "100"
+        assert info["endurance_used_percent"] == "4"
+        assert info["available_spare_percent"] == "100"
+        assert info["data_written_tib"] == 12.34
+        assert info["unsafe_shutdowns"] == "7"
 
 
 class TestPrintJsonOutput:

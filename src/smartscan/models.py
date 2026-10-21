@@ -28,6 +28,10 @@ class SmartInfo(TypedDict):
     power_cycle_count: str
     smart_status: str
     temperature: str
+    endurance_used_percent: str
+    available_spare_percent: str
+    data_written_tib: float | None
+    unsafe_shutdowns: str
     reallocated_sector_ct: str
     current_pending_sector: str
     offline_uncorrectable: str
@@ -45,6 +49,7 @@ class SmartInfo(TypedDict):
 class ThresholdRules(BaseModel):
     enabled: bool = True
     temperature_celsius: int = 50
+    endurance_used_percent: int = 90
     reallocated_sector_ct: int = 0
     current_pending_sector: int = 0
     offline_uncorrectable: int = 0
