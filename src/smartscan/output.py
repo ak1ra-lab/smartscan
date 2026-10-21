@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import sqlite3
 import sys
-from typing import Any, cast
+from typing import Any, NamedTuple, cast
 
 from rich.console import Console
 from rich.panel import Panel
@@ -28,6 +28,15 @@ FIELD_WIDTH = 24
 console = Console(highlight=False)
 
 
+class FieldRow(NamedTuple):
+    """One rendered table row, keyed by the underlying SMART field name."""
+
+    key: str
+    label: str
+    value: str
+    level: str | None
+
+
 def _format_field_value(field: FieldDef, fields: SmartInfo) -> str:
     value = get_field(fields, field.key)
     if value is None or value == "N/A":
@@ -39,29 +48,30 @@ def _format_field_value(field: FieldDef, fields: SmartInfo) -> str:
     return "N/A"
 
 
-def _build_core_rows(fields: SmartInfo) -> list[tuple[str, str]]:
-    return [(f.label, _format_field_value(f, fields)) for f in CORE_FIELDS]
-
-
-def _build_extended_rows(fields: SmartInfo) -> list[tuple[str, str]]:
-    return [(f.label, _format_field_value(f, fields)) for f in EXTENDED_FIELDS]
-
-
 def _format_fields(
     fields: SmartInfo,
     alerts_map: dict[str, str],
     verbose: bool = False,
-) -> list[tuple[str, str, str | None]]:
-    rows: list[tuple[str, str, str | None]] = []
+) -> list[FieldRow]:
+    """Build the rows to display.
 
-    for label, value in _build_core_rows(fields):
-        style = alerts_map.get(label)
-        rows.append((label, value, style))
-
+    Default output shows core fields that the drive actually reports, plus any
+    extended field that triggered an alert.  ``--verbose`` shows every field,
+    including values the drive does not provide.
+    """
+    display_fields = list(CORE_FIELDS)
     if verbose:
-        for label, value in _build_extended_rows(fields):
-            style = alerts_map.get(label)
-            rows.append((label, value, style))
+        display_fields.extend(EXTENDED_FIELDS)
+    else:
+        display_fields.extend(f for f in EXTENDED_FIELDS if f.key in alerts_map)
+
+    rows: list[FieldRow] = []
+    for field in display_fields:
+        value = _format_field_value(field, fields)
+        level = alerts_map.get(field.key)
+        if not verbose and value in ("", "N/A") and level is None:
+            continue
+        rows.append(FieldRow(field.key, field.label, value, level))
 
     return rows
 
@@ -79,17 +89,17 @@ def _print_fields(fields: SmartInfo, alerts: list[Any] | None = None, verbose: b
     table = Table(show_header=False, box=None, padding=(0, 1))
     table.add_column(style="cyan", width=FIELD_WIDTH)
     table.add_column()
-    for label, value, style_name in _format_fields(fields, amap, verbose=verbose):
-        if style_name == "critical":
+    for row in _format_fields(fields, amap, verbose=verbose):
+        if row.level == "critical":
             style = "bold red"
             prefix = "!! "
-        elif style_name == "warning":
+        elif row.level == "warning":
             style = "yellow"
             prefix = "!  "
         else:
             style = None
             prefix = ""
-        table.add_row(label, f"{prefix}{value}", style=style)
+        table.add_row(row.label, f"{prefix}{row.value}", style=style)
     console.print(table)
 
     if alerts_list:

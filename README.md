@@ -30,6 +30,10 @@ smartscan query --since 2026-01-01
 smartscan query --last-days 7 --verbose
 ```
 
+Default tables show only fields that the drive actually reports and that are
+relevant to its health. Use `--verbose` to include diagnostic counters and
+unavailable fields as well.
+
 Map disks to their /dev/disk/ identifiers (no root needed):
 
 ```bash

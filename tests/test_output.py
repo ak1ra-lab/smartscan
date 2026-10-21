@@ -5,7 +5,8 @@ import json
 import sqlite3
 import sys
 
-from smartscan.output import print_json_output, row_to_fields
+from smartscan.fields import rotation_display
+from smartscan.output import _format_fields, print_json_output, row_to_fields
 
 
 def _make_row(data: dict) -> sqlite3.Row:
@@ -114,6 +115,7 @@ class TestRowToFields:
         assert info["user_capacity_bytes"] == 0
         assert info["user_capacity_gib"] is None
         assert info["data_written_tib"] is None
+        assert info["rotation_rate_display"] == "N/A"
 
     def test_missing_columns_use_field_defaults(self) -> None:
         conn = sqlite3.connect(":memory:")
@@ -286,3 +288,94 @@ class TestPrintJsonOutput:
         output = buf.getvalue()
         record = json.loads(output)
         assert record["llm_analysis"] == "Drive appears healthy."
+
+
+class TestFormatFields:
+    def test_default_hides_unavailable_fields(self) -> None:
+        from conftest import make_fields
+
+        fields = make_fields(
+            model_name="Test Model",
+            temperature="35",
+            endurance_used_percent="N/A",
+            farm_unrecoverable_read_errors="N/A",
+            scsi_uncorrected_errors="N/A",
+        )
+
+        rows = _format_fields(fields, {})
+
+        keys = [row.key for row in rows]
+        assert "model_name" in keys
+        assert "temperature" in keys
+        assert "endurance_used_percent" not in keys
+        assert "farm_unrecoverable_read_errors" not in keys
+        assert "scsi_uncorrected_errors" not in keys
+        assert all(row.value not in ("", "N/A") for row in rows)
+
+    def test_default_shows_applicable_drive_specific_fields(self) -> None:
+        from conftest import make_fields
+
+        fields = make_fields(
+            endurance_used_percent="4",
+            available_spare_percent="100",
+            farm_unrecoverable_read_errors="0",
+            farm_unrecoverable_write_errors="0",
+        )
+
+        keys = [row.key for row in _format_fields(fields, {})]
+
+        assert "endurance_used_percent" in keys
+        assert "available_spare_percent" in keys
+        assert "farm_unrecoverable_read_errors" in keys
+        assert "farm_unrecoverable_write_errors" in keys
+
+    def test_default_hides_extended_fields_without_alerts(self) -> None:
+        from conftest import make_fields
+
+        fields = make_fields(udma_crc_error_count="5", farm_head_flight_hours="19149")
+
+        keys = [row.key for row in _format_fields(fields, {})]
+
+        assert "udma_crc_error_count" not in keys
+        assert "farm_head_flight_hours" not in keys
+
+    def test_alert_promotes_extended_field(self) -> None:
+        from conftest import make_fields
+
+        fields = make_fields(udma_crc_error_count="5")
+
+        rows = _format_fields(fields, {"udma_crc_error_count": "warning"})
+        row = next(row for row in rows if row.key == "udma_crc_error_count")
+
+        assert row.label == "udma_crc_error_count"
+        assert row.value == "5"
+        assert row.level == "warning"
+
+    def test_alert_uses_field_key_not_display_label(self) -> None:
+        from conftest import make_fields
+
+        fields = make_fields(farm_unrecoverable_read_errors="1")
+
+        rows = _format_fields(fields, {"farm_unrecoverable_read_errors": "critical"})
+        row = next(row for row in rows if row.key == "farm_unrecoverable_read_errors")
+
+        assert row.label == "farm_unc_read"
+        assert row.level == "critical"
+
+    def test_verbose_shows_extended_and_unavailable_fields(self) -> None:
+        from conftest import make_fields
+
+        fields = make_fields()
+
+        rows = _format_fields(fields, {}, verbose=True)
+
+        keys = [row.key for row in rows]
+        assert "serial_number" in keys
+        assert "farm_unrecoverable_read_errors" in keys
+        assert any(row.value == "N/A" for row in rows)
+
+    def test_unknown_rotation_rate_is_not_reported_as_ssd(self) -> None:
+        assert rotation_display("N/A") == "N/A"
+        assert rotation_display("") == "N/A"
+        assert rotation_display("0") == "SSD (no rotation)"
+        assert rotation_display("7200") == "7200 rpm"

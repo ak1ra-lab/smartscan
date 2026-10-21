@@ -102,6 +102,27 @@ Output example:
 > To share the database across users, set a custom `db_path` in the config file
 > pointing to a location readable by all users.
 
+## Output fields
+
+The default `collect` and `query` tables are health summaries. They show only
+fields that the drive actually reports and that can change the verdict or
+require action:
+
+- Identity and context: model, capacity, rotation rate, power-on hours, SMART
+  overall status, temperature, and self-test status.
+- Drive-specific critical counters: ATA reallocated, pending, and
+  offline-uncorrectable sectors, pending defects, and error-log count; NVMe
+  endurance used, available spare, and media/data-integrity errors; SCSI grown
+  defects and uncorrected errors; Seagate FARM unrecoverable read/write errors.
+- Fields that a drive does not report are omitted instead of being shown as
+  `N/A`, so only applicable counters appear for each drive type.
+- `--verbose` adds diagnostic and context counters, such as link/CRC errors,
+  raw error rates, load cycles, serial/firmware, FARM detail, and values that
+  are unavailable.
+
+If an extended field triggers a threshold alert, it is promoted into the
+default table automatically so that the warning is never hidden.
+
 ## Configuration
 
 smartscan reads an optional TOML config file at `/etc/smartscan/smartscan.toml`. All subcommands, thresholds, and LLM settings are configurable.

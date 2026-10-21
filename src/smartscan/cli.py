@@ -102,7 +102,7 @@ def _build_parser(config: SmartScanConfig | None = None) -> argparse.ArgumentPar
         "-v",
         "--verbose",
         action="store_true",
-        help="Show extended fields in terminal output",
+        help="Show all fields, including extended counters and unavailable values",
     )
 
     query_parser = sub.add_parser("query", help="Query historical SMART data from database")
@@ -132,7 +132,7 @@ def _build_parser(config: SmartScanConfig | None = None) -> argparse.ArgumentPar
         "--verbose",
         "-v",
         action="store_true",
-        help="Show extended fields in terminal output",
+        help="Show all fields, including extended counters and unavailable values",
     )
     query_parser.add_argument(
         "--no-compact",

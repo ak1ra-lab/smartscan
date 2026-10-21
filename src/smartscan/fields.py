@@ -3,6 +3,18 @@
 Each :class:`FieldDef` describes one field in :class:`~models.SmartInfo`,
 including its database column name, display label, output grouping,
 and prompt presentation details.
+
+Field sections follow the display policy:
+
+- ``core``: health signals that can change the verdict or require action.
+  They are shown by default when the drive reports a value.
+- ``extended``: diagnostic and context counters.  They are shown with
+  ``--verbose``, or automatically when the field triggers an alert.
+- ``identity``: internal columns that are not rendered directly.
+
+Fields that a drive does not report are omitted from the default table
+instead of being printed as ``N/A``.  This keeps the default view focused on
+signals that are actually meaningful for the drive in question.
 """
 
 from __future__ import annotations
@@ -39,11 +51,14 @@ def get_field(fields: SmartInfo, key: str) -> Any:
 def rotation_display(rotation_rate: str) -> str:
     """Return a human-readable rotation rate string.
 
-    ``"7200"`` → ``"7200 rpm"``, ``"0"`` → ``"SSD (no rotation)"``.
+    ``"7200"`` → ``"7200 rpm"``, ``"0"`` → ``"SSD (no rotation)"``,
+    unknown values → ``"N/A"``.
     """
-    if rotation_rate and rotation_rate not in ("N/A", "0"):
-        return f"{rotation_rate} rpm"
-    return "SSD (no rotation)"
+    if not rotation_rate or rotation_rate == "N/A":
+        return "N/A"
+    if rotation_rate == "0":
+        return "SSD (no rotation)"
+    return f"{rotation_rate} rpm"
 
 
 _FIELDS: tuple[FieldDef, ...] = (
