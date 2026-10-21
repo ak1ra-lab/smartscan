@@ -325,21 +325,6 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
-# Ansible
-.ansible/*
-inventory/*.yaml
-playbooks/host_vars/**/*.yaml
-playbooks/group_vars/**/*.yaml
-playbooks/host_vars/**/*.patch
-playbooks/group_vars/**/*.patch
-
-# Ansible runtime scripts and templates
-playbooks/scripts/*
-playbooks/templates/*
-
-# 示例 Ansible inventory
-!inventory/hosts.example.yaml
-
 # General configuration file and examples folder
 config/*
 credentials/
@@ -347,5 +332,4 @@ credentials.yaml
 examples/*
 
 ## LLM
-docs/sessions/*
-.agents/state/sessions/*
+.agents/sessions/*
