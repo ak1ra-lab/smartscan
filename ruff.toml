@@ -35,7 +35,8 @@ indent-width = 4
 target-version = "py311"
 
 [lint]
-# select = [...]  # See the Default Rules page for the full listing.
+# Keep the rule set explicit so Ruff upgrades do not silently expand lint scope.
+select = ["E4", "E7", "E9", "F", "I"]
 ignore = []
 
 # Allow fix for all enabled rules (when `--fix`) is provided.
