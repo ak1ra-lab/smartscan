@@ -28,6 +28,8 @@ _CRITICAL_FIELDS = frozenset(
         "offline_uncorrectable",
         "pending_defects_count",
         "scsi_uncorrected_errors",
+        "farm_unrecoverable_read_errors",
+        "farm_unrecoverable_write_errors",
     }
 )
 
@@ -91,6 +93,10 @@ def check_thresholds(fields: SmartInfo, rules: ThresholdRules) -> list[Alert]:
         "sata_phy_crc_errors": _int_val(fields["sata_phy_crc_errors"]),
         "scsi_uncorrected_errors": _int_val(fields["scsi_uncorrected_errors"]),
         "scsi_sas_phy_errors": _int_val(fields["scsi_sas_phy_errors"]),
+        "farm_unrecoverable_read_errors": _int_val(fields["farm_unrecoverable_read_errors"]),
+        "farm_unrecoverable_write_errors": _int_val(fields["farm_unrecoverable_write_errors"]),
+        "farm_read_recovery_attempts": _int_val(fields["farm_read_recovery_attempts"]),
+        "farm_crc_errors": _int_val(fields["farm_crc_errors"]),
         "reallocated_event_count": _int_val(fields["reallocated_event_count"]),
         "ata_smart_error_log": _int_val(fields["ata_smart_error_log"]),
         "udma_crc_error_count": _int_val(fields["udma_crc_error_count"]),
@@ -109,6 +115,10 @@ def check_thresholds(fields: SmartInfo, rules: ThresholdRules) -> list[Alert]:
         "sata_phy_crc_errors": rules.sata_phy_crc_errors,
         "scsi_uncorrected_errors": rules.scsi_uncorrected_errors,
         "scsi_sas_phy_errors": rules.scsi_sas_phy_errors,
+        "farm_unrecoverable_read_errors": rules.farm_unrecoverable_read_errors,
+        "farm_unrecoverable_write_errors": rules.farm_unrecoverable_write_errors,
+        "farm_read_recovery_attempts": rules.farm_read_recovery_attempts,
+        "farm_crc_errors": rules.farm_crc_errors,
         "reallocated_event_count": rules.reallocated_event_count,
         "ata_smart_error_log": rules.ata_smart_error_log_count,
         "udma_crc_error_count": rules.udma_crc_error_count,

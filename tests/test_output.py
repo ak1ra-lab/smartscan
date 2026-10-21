@@ -18,6 +18,9 @@ def _make_row(data: dict) -> sqlite3.Row:
             "endurance_used_percent, available_spare_percent, data_written_tib, unsafe_shutdowns, "
             "pending_defects_count, sata_phy_icrc_errors, sata_phy_crc_errors, sata_phy_comreset_count, "
             "scsi_uncorrected_errors, scsi_corrected_errors, scsi_sas_phy_errors, "
+            "farm_unrecoverable_read_errors, farm_unrecoverable_write_errors, "
+            "farm_read_recovery_attempts, farm_crc_errors, farm_head_flight_hours, "
+            "farm_head_load_events, farm_reset_count, farm_temperature_max, "
             "reallocated_sector_ct, current_pending_sector, offline_uncorrectable, "
             "reallocated_event_count, ata_smart_error_log_count, self_test_status, "
             "udma_crc_error_count, raw_read_error_rate, spin_retry_count, "
@@ -129,6 +132,7 @@ class TestRowToFields:
         assert info["unsafe_shutdowns"] == "N/A"
         assert info["pending_defects_count"] == "N/A"
         assert info["scsi_uncorrected_errors"] == "N/A"
+        assert info["farm_unrecoverable_read_errors"] == "N/A"
 
     def test_new_fields_preserved(self) -> None:
         row = _make_row(
@@ -156,6 +160,14 @@ class TestRowToFields:
                 "scsi_uncorrected_errors": "0",
                 "scsi_corrected_errors": "0",
                 "scsi_sas_phy_errors": "0",
+                "farm_unrecoverable_read_errors": "0",
+                "farm_unrecoverable_write_errors": "0",
+                "farm_read_recovery_attempts": "0",
+                "farm_crc_errors": "0",
+                "farm_head_flight_hours": "19149",
+                "farm_head_load_events": "5176",
+                "farm_reset_count": "321",
+                "farm_temperature_max": "60",
                 "reallocated_sector_ct": "21",
                 "current_pending_sector": "0",
                 "offline_uncorrectable": "0",
@@ -187,6 +199,14 @@ class TestRowToFields:
         assert info["scsi_uncorrected_errors"] == "0"
         assert info["scsi_corrected_errors"] == "0"
         assert info["scsi_sas_phy_errors"] == "0"
+        assert info["farm_unrecoverable_read_errors"] == "0"
+        assert info["farm_unrecoverable_write_errors"] == "0"
+        assert info["farm_read_recovery_attempts"] == "0"
+        assert info["farm_crc_errors"] == "0"
+        assert info["farm_head_flight_hours"] == "19149"
+        assert info["farm_head_load_events"] == "5176"
+        assert info["farm_reset_count"] == "321"
+        assert info["farm_temperature_max"] == "60"
 
 
 class TestPrintJsonOutput:

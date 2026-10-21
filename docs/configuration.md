@@ -97,6 +97,12 @@ sata_phy_crc_errors = 0
 scsi_uncorrected_errors = 0
 scsi_sas_phy_errors = 0
 
+# Alert on Seagate FARM unrecoverable errors, read recovery attempts, or CRC errors
+farm_unrecoverable_read_errors = 0
+farm_unrecoverable_write_errors = 0
+farm_read_recovery_attempts = 0
+farm_crc_errors = 0
+
 # Alert if the reallocation event counter has increased
 reallocated_event_count = 0
 

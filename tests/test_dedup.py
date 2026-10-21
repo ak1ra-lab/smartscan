@@ -101,6 +101,12 @@ class TestHasSignificantChange:
         assert "sata_phy_crc_errors" in MONITORED_FIELDS
         assert "scsi_uncorrected_errors" in MONITORED_FIELDS
         assert "scsi_sas_phy_errors" in MONITORED_FIELDS
+        assert "farm_unrecoverable_read_errors" in MONITORED_FIELDS
+        assert "farm_unrecoverable_write_errors" in MONITORED_FIELDS
+        assert "farm_read_recovery_attempts" in MONITORED_FIELDS
+        assert "farm_crc_errors" in MONITORED_FIELDS
+        assert "farm_reset_count" in MONITORED_FIELDS
+        assert "farm_temperature_max" in MONITORED_FIELDS
         assert "reallocated_sector_ct" in MONITORED_FIELDS
         assert "current_pending_sector" in MONITORED_FIELDS
         assert "offline_uncorrectable" in MONITORED_FIELDS

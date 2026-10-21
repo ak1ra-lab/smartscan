@@ -188,19 +188,26 @@ def _add_nvme_link_speed(data: dict[str, Any], disk_path: Path) -> None:
         data.setdefault("interface_speed", {"current": {"string": speed}})
 
 
-def run_smartctl(disk_path: Path) -> tuple[dict[str, Any], int]:
-    """Run ``smartctl --xall --json`` against a disk and return parsed JSON and exit code.
+def _add_seagate_farm_log(data: dict[str, Any], disk_path: Path) -> None:
+    """Fetch the Seagate FARM log when the initial SMART scan reports support."""
+    farm = data.get("seagate_farm_log")
+    if not isinstance(farm, dict) or farm.get("supported") is not True:
+        return
+    if "page_1_drive_information" in farm or "drive_information" in farm:
+        return
 
-    ``--xall`` is a superset of ``--all`` for ATA disks and identical to
-    ``--all`` for NVMe disks.
+    farm_data, _ = _run_smartctl_json(disk_path, ("-l", "farm"))
+    farm_log = farm_data.get("seagate_farm_log")
+    if isinstance(farm_log, dict) and farm_log.get("supported") is True:
+        data["seagate_farm_log"] = farm_log
 
-    Raises:
-        SmartctlError: If the smartctl binary is not found.
-    """
-    logging.debug("Running smartctl on %s", disk_path)
+
+def _run_smartctl_json(disk_path: Path, options: tuple[str, ...]) -> tuple[dict[str, Any], int]:
+    """Run smartctl with the given options and return parsed JSON and exit code."""
+    logging.debug("Running smartctl %s on %s", " ".join(options), disk_path)
     try:
         result = subprocess.run(
-            ["smartctl", "--xall", "--json", str(disk_path)],
+            ["smartctl", *options, "--json", str(disk_path)],
             capture_output=True,
             text=True,
             timeout=30,
@@ -219,9 +226,43 @@ def run_smartctl(disk_path: Path) -> tuple[dict[str, Any], int]:
         logging.error("Failed to parse smartctl JSON output for %s", disk_path)
         data = {}
 
-    _add_nvme_link_speed(data, disk_path)
-
     return data, result.returncode
+
+
+def _needs_sat_fallback(data: dict[str, Any]) -> bool:
+    """Return True when smartctl saw SCSI but produced no usable disk SMART data."""
+    if safe_get(data, "device", "protocol", default=None) != "SCSI":
+        return False
+    return not any(key in data for key in ("ata_smart_attributes", "scsi_error_counter_log", "scsi_grown_defect_list"))
+
+
+def _has_ata_data(data: dict[str, Any]) -> bool:
+    return "ata_smart_attributes" in data or safe_get(data, "device", "protocol", default=None) == "ATA"
+
+
+def run_smartctl(disk_path: Path) -> tuple[dict[str, Any], int]:
+    """Run ``smartctl --xall --json`` against a disk and return parsed JSON and exit code.
+
+    ``--xall`` is a superset of ``--all`` for ATA disks and identical to
+    ``--all`` for NVMe disks.  SATA disks behind a SCSI/SAS HBA are retried
+    with ``-d sat`` when auto-detection yields no usable SMART data.  Seagate
+    drives additionally receive a FARM log read when the initial scan reports
+    support.
+
+    Raises:
+        SmartctlError: If the smartctl binary is not found.
+    """
+    data, returncode = _run_smartctl_json(disk_path, ("--xall",))
+
+    if _needs_sat_fallback(data):
+        logging.debug("Retrying %s with -d sat", disk_path)
+        sat_data, sat_returncode = _run_smartctl_json(disk_path, ("--xall", "-d", "sat"))
+        if _has_ata_data(sat_data):
+            data, returncode = sat_data, sat_returncode
+
+    _add_seagate_farm_log(data, disk_path)
+    _add_nvme_link_speed(data, disk_path)
+    return data, returncode
 
 
 _ATA_ATTRIBUTES = (
@@ -376,6 +417,14 @@ def _scsi_data_written_tib(data: dict[str, Any]) -> float | None:
     return round(gigabytes * 1_000_000_000 / _TIB_BYTES, 2)
 
 
+def _farm_value(data: dict[str, Any], *paths: tuple[str, ...]) -> str:
+    for path in paths:
+        value = safe_get(data, "seagate_farm_log", *path, default=None)
+        if value is not None:
+            return str(value)
+    return "N/A"
+
+
 def _ata_endurance_used(data: dict[str, Any]) -> str:
     current = safe_get(data, "endurance_used", "current_percent", default=None)
     if current is not None:
@@ -450,6 +499,14 @@ def _extract_nvme_health(data: dict[str, Any]) -> SmartInfo:
         scsi_uncorrected_errors="N/A",
         scsi_corrected_errors="N/A",
         scsi_sas_phy_errors="N/A",
+        farm_unrecoverable_read_errors="N/A",
+        farm_unrecoverable_write_errors="N/A",
+        farm_read_recovery_attempts="N/A",
+        farm_crc_errors="N/A",
+        farm_head_flight_hours="N/A",
+        farm_head_load_events="N/A",
+        farm_reset_count="N/A",
+        farm_temperature_max="N/A",
         reallocated_sector_ct=str(safe_get(log, "media_errors", default="N/A")),
         current_pending_sector="N/A",
         offline_uncorrectable="N/A",
@@ -494,6 +551,18 @@ def _extract_ata_health(data: dict[str, Any]) -> SmartInfo:
         scsi_uncorrected_errors="N/A",
         scsi_corrected_errors="N/A",
         scsi_sas_phy_errors="N/A",
+        farm_unrecoverable_read_errors=_farm_value(
+            data, ("page_3_error_statistics", "number_of_unrecoverable_read_errors")
+        ),
+        farm_unrecoverable_write_errors=_farm_value(
+            data, ("page_3_error_statistics", "number_of_unrecoverable_write_errors")
+        ),
+        farm_read_recovery_attempts=_farm_value(data, ("page_3_error_statistics", "number_of_read_recovery_attempts")),
+        farm_crc_errors=_farm_value(data, ("page_3_error_statistics", "total_crc_errors")),
+        farm_head_flight_hours=_farm_value(data, ("page_1_drive_information", "head_flight_hours")),
+        farm_head_load_events=_farm_value(data, ("page_1_drive_information", "head_load_events")),
+        farm_reset_count=_farm_value(data, ("page_1_drive_information", "reset_count")),
+        farm_temperature_max=_farm_value(data, ("page_4_environment_statistics", "highest_temp")),
         reallocated_sector_ct=_find_attr(data, "Reallocated_Sector_Ct"),
         current_pending_sector=_find_attr(data, "Current_Pending_Sector"),
         offline_uncorrectable=_find_attr(data, "Offline_Uncorrectable"),
@@ -545,6 +614,30 @@ def _extract_scsi_health(data: dict[str, Any]) -> SmartInfo:
         scsi_uncorrected_errors=_scsi_error_sum(data, "total_uncorrected_errors"),
         scsi_corrected_errors=_scsi_error_sum(data, "total_errors_corrected"),
         scsi_sas_phy_errors=_scsi_sas_phy_errors(data),
+        farm_unrecoverable_read_errors=_farm_value(
+            data,
+            ("page_3_error_statistics", "number_of_unrecoverable_read_errors"),
+            ("error_statistics", "unrecoverable_read_errors"),
+        ),
+        farm_unrecoverable_write_errors=_farm_value(
+            data,
+            ("page_3_error_statistics", "number_of_unrecoverable_write_errors"),
+            ("error_statistics", "unrecoverable_write_errors"),
+        ),
+        farm_read_recovery_attempts=_farm_value(data, ("page_3_error_statistics", "number_of_read_recovery_attempts")),
+        farm_crc_errors=_farm_value(data, ("page_3_error_statistics", "total_crc_errors")),
+        farm_head_flight_hours=_farm_value(data, ("page_1_drive_information", "head_flight_hours")),
+        farm_head_load_events=_farm_value(data, ("page_1_drive_information", "head_load_events")),
+        farm_reset_count=_farm_value(
+            data,
+            ("page_1_drive_information", "reset_count"),
+            ("drive_information", "hardware_reset_count"),
+        ),
+        farm_temperature_max=_farm_value(
+            data,
+            ("page_4_environment_statistics", "highest_temp"),
+            ("environment_statistics", "highest_temperature"),
+        ),
         reallocated_sector_ct=str(safe_get(data, "scsi_grown_defect_list")),
         current_pending_sector="N/A",
         offline_uncorrectable="N/A",

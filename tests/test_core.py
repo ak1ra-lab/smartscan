@@ -133,6 +133,56 @@ class TestRunSmartctl:
 
         assert data["interface_speed"]["current"]["string"] == "8.0 GT/s PCIe x4"
 
+    def test_adds_seagate_farm_log(self) -> None:
+        xall = CompletedProcess(
+            args=[],
+            returncode=0,
+            stdout='{"seagate_farm_log": {"supported": true}}',
+        )
+        farm = CompletedProcess(
+            args=[],
+            returncode=0,
+            stdout=(
+                '{"seagate_farm_log": {"supported": true, "page_1_drive_information": {"head_flight_hours": 100}}}'
+            ),
+        )
+        with patch("smartscan.smartctl.subprocess.run", side_effect=[xall, farm]) as run:
+            data, _ = run_smartctl(Path("/dev/sda"))
+
+        assert data["seagate_farm_log"]["page_1_drive_information"]["head_flight_hours"] == 100
+        assert run.call_count == 2
+        assert run.call_args_list[1].args[0] == ["smartctl", "-l", "farm", "--json", "/dev/sda"]
+
+    def test_retries_with_sat_for_scsi_without_smart_data(self) -> None:
+        scsi = CompletedProcess(
+            args=[],
+            returncode=0,
+            stdout='{"device": {"protocol": "SCSI"}}',
+        )
+        sat = CompletedProcess(
+            args=[],
+            returncode=0,
+            stdout='{"device": {"protocol": "ATA"}, "ata_smart_attributes": {"table": []}}',
+        )
+        with patch("smartscan.smartctl.subprocess.run", side_effect=[scsi, sat]) as run:
+            data, _ = run_smartctl(Path("/dev/sda"))
+
+        assert data["device"]["protocol"] == "ATA"
+        assert run.call_count == 2
+        assert run.call_args_list[1].args[0] == ["smartctl", "--xall", "-d", "sat", "--json", "/dev/sda"]
+
+    def test_does_not_retry_for_scsi_with_smart_data(self) -> None:
+        scsi = CompletedProcess(
+            args=[],
+            returncode=0,
+            stdout='{"device": {"protocol": "SCSI"}, "scsi_error_counter_log": {}}',
+        )
+        with patch("smartscan.smartctl.subprocess.run", return_value=scsi) as run:
+            data, _ = run_smartctl(Path("/dev/sda"))
+
+        assert data["device"]["protocol"] == "SCSI"
+        assert run.call_count == 1
+
 
 class TestFindDisks:
     def test_includes_scsi_and_skips_partitions(self) -> None:
@@ -352,6 +402,54 @@ class TestExtractFields:
         assert fields["scsi_sas_phy_errors"] == "N/A"
         assert fields["interface_speed"] == "N/A"
         assert fields["self_test_status"] == "N/A"
+
+    def test_seagate_ata_farm_fields(self) -> None:
+        data = {
+            "model_name": "ST6000VX001-2BD186",
+            "seagate_farm_log": {
+                "supported": True,
+                "page_1_drive_information": {
+                    "head_flight_hours": 19149,
+                    "head_load_events": 5176,
+                    "reset_count": 321,
+                },
+                "page_3_error_statistics": {
+                    "number_of_unrecoverable_read_errors": 0,
+                    "number_of_unrecoverable_write_errors": 0,
+                    "number_of_read_recovery_attempts": 0,
+                    "total_crc_errors": 0,
+                },
+                "page_4_environment_statistics": {"highest_temp": 60},
+            },
+        }
+        fields = extract_fields(data)
+        assert fields["farm_unrecoverable_read_errors"] == "0"
+        assert fields["farm_unrecoverable_write_errors"] == "0"
+        assert fields["farm_read_recovery_attempts"] == "0"
+        assert fields["farm_crc_errors"] == "0"
+        assert fields["farm_head_flight_hours"] == "19149"
+        assert fields["farm_head_load_events"] == "5176"
+        assert fields["farm_reset_count"] == "321"
+        assert fields["farm_temperature_max"] == "60"
+
+    def test_seagate_sas_farm_fields(self) -> None:
+        data = {
+            "device": {"protocol": "SCSI"},
+            "seagate_farm_log": {
+                "supported": True,
+                "drive_information": {"hardware_reset_count": 12},
+                "error_statistics": {
+                    "unrecoverable_read_errors": 1,
+                    "unrecoverable_write_errors": 2,
+                },
+                "environment_statistics": {"highest_temperature": 55},
+            },
+        }
+        fields = extract_fields(data)
+        assert fields["farm_unrecoverable_read_errors"] == "1"
+        assert fields["farm_unrecoverable_write_errors"] == "2"
+        assert fields["farm_reset_count"] == "12"
+        assert fields["farm_temperature_max"] == "55"
 
     def test_nvme_smart_health_fields(self) -> None:
         data = {
@@ -624,6 +722,18 @@ class TestThresholds:
         alerts = check_thresholds(fields, rules)
         assert any(a.field == "scsi_sas_phy_errors" and a.level == "warning" for a in alerts)
 
+    def test_farm_unrecoverable_read_errors_critical(self) -> None:
+        fields = make_fields(farm_unrecoverable_read_errors="1")
+        rules = ThresholdRules()
+        alerts = check_thresholds(fields, rules)
+        assert any(a.field == "farm_unrecoverable_read_errors" and a.level == "critical" for a in alerts)
+
+    def test_farm_crc_errors_warning(self) -> None:
+        fields = make_fields(farm_crc_errors="1")
+        rules = ThresholdRules()
+        alerts = check_thresholds(fields, rules)
+        assert any(a.field == "farm_crc_errors" and a.level == "warning" for a in alerts)
+
     def test_multiple_alerts(self) -> None:
         fields = make_fields(
             smart_status="FAILED",
@@ -698,6 +808,7 @@ class TestDatabase:
         assert "pending_defects_count" in col_names
         assert "sata_phy_icrc_errors" in col_names
         assert "scsi_uncorrected_errors" in col_names
+        assert "farm_unrecoverable_read_errors" in col_names
         assert "llm_analysis" in col_names
         conn.close()
 

@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Extract ATA endurance and data-written values from Device Statistics collected by `--xall`
 - Extract ATA pending-defect counts and SATA PHY ICRC/CRC/COMRESET counters
 - Discover and extract SCSI/SAS disks, including grown defects, error counters, start-stop cycles, link rate, and SAS PHY errors
+- Collect the Seagate FARM log when a drive reports support and extract unrecoverable read/write errors, read recovery attempts, CRC errors, head flight/load counters, reset count, and maximum temperature
 - Add `thresholds.endurance_used_percent` (default `90`) and report SSD endurance in tables, JSON, and LLM prompts
 
 ### Changed
@@ -25,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - NVMe self-test status is read from `nvme_self_test_log` instead of the SMART/Health log
 - In-progress self-tests no longer raise a false warning
 - NVMe interface speed is read from sysfs when smartctl does not report it
+- SATA disks behind a SCSI/SAS HBA are retried with `-d sat` when auto-detection returns no usable SMART data
 - Querying a database created by an older version no longer fails when newer columns are missing
 
 ## [0.5.0] - 2026-10-21

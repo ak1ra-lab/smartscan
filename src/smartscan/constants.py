@@ -49,6 +49,14 @@ DB_MIGRATIONS = [
     "ALTER TABLE smart_info ADD COLUMN scsi_uncorrected_errors TEXT",
     "ALTER TABLE smart_info ADD COLUMN scsi_corrected_errors TEXT",
     "ALTER TABLE smart_info ADD COLUMN scsi_sas_phy_errors TEXT",
+    "ALTER TABLE smart_info ADD COLUMN farm_unrecoverable_read_errors TEXT",
+    "ALTER TABLE smart_info ADD COLUMN farm_unrecoverable_write_errors TEXT",
+    "ALTER TABLE smart_info ADD COLUMN farm_read_recovery_attempts TEXT",
+    "ALTER TABLE smart_info ADD COLUMN farm_crc_errors TEXT",
+    "ALTER TABLE smart_info ADD COLUMN farm_head_flight_hours TEXT",
+    "ALTER TABLE smart_info ADD COLUMN farm_head_load_events TEXT",
+    "ALTER TABLE smart_info ADD COLUMN farm_reset_count TEXT",
+    "ALTER TABLE smart_info ADD COLUMN farm_temperature_max TEXT",
     "ALTER TABLE smart_info ADD COLUMN llm_analysis TEXT",
 ]
 

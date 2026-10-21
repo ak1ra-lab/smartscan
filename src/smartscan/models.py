@@ -39,6 +39,14 @@ class SmartInfo(TypedDict):
     scsi_uncorrected_errors: str
     scsi_corrected_errors: str
     scsi_sas_phy_errors: str
+    farm_unrecoverable_read_errors: str
+    farm_unrecoverable_write_errors: str
+    farm_read_recovery_attempts: str
+    farm_crc_errors: str
+    farm_head_flight_hours: str
+    farm_head_load_events: str
+    farm_reset_count: str
+    farm_temperature_max: str
     reallocated_sector_ct: str
     current_pending_sector: str
     offline_uncorrectable: str
@@ -65,6 +73,10 @@ class ThresholdRules(BaseModel):
     sata_phy_crc_errors: int = 0
     scsi_uncorrected_errors: int = 0
     scsi_sas_phy_errors: int = 0
+    farm_unrecoverable_read_errors: int = 0
+    farm_unrecoverable_write_errors: int = 0
+    farm_read_recovery_attempts: int = 0
+    farm_crc_errors: int = 0
     reallocated_event_count: int = 0
     udma_crc_error_count: int = 0
     ata_smart_error_log_count: int = 0
