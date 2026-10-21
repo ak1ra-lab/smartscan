@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import logging
 import sqlite3
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from .database import query_smart_info
 from .fields import MONITORED_FIELDS
@@ -19,7 +19,7 @@ _TEMP_DELTA_THRESHOLD: float = 3.0
 
 
 def _parse_ts(ts_str: str) -> datetime:
-    return datetime.strptime(ts_str, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+    return datetime.strptime(ts_str, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=UTC)
 
 
 def _float_val(value: str) -> float | None:

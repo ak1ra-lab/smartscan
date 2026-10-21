@@ -109,10 +109,9 @@ class TestCallOpenAI:
         alerts_text = "  (none)"
         config = _make_config(api_url="https://api.anthropic.com/v1/messages")
 
-        with caplog.at_level(logging.WARNING):
-            with patch("httpx2.post") as mock_post:
-                mock_post.return_value = _make_mock_response({"choices": [{"message": {"content": "ok"}}]})
-                OpenAIProvider(config).call(build_prompt(fields, alerts_text))
+        with caplog.at_level(logging.WARNING), patch("httpx2.post") as mock_post:
+            mock_post.return_value = _make_mock_response({"choices": [{"message": {"content": "ok"}}]})
+            OpenAIProvider(config).call(build_prompt(fields, alerts_text))
 
         assert "api_url does not appear to match" in caplog.text
 
@@ -123,10 +122,9 @@ class TestCallOpenAI:
             api_url="https://my-proxy.example.com/v1/messages",
         )
 
-        with caplog.at_level(logging.WARNING):
-            with patch("httpx2.post") as mock_post:
-                mock_post.return_value = _make_mock_response({"choices": [{"message": {"content": "ok"}}]})
-                OpenAIProvider(config).call(build_prompt(fields, alerts_text))
+        with caplog.at_level(logging.WARNING), patch("httpx2.post") as mock_post:
+            mock_post.return_value = _make_mock_response({"choices": [{"message": {"content": "ok"}}]})
+            OpenAIProvider(config).call(build_prompt(fields, alerts_text))
 
         assert "api_url does not appear to match" in caplog.text
 
@@ -135,10 +133,9 @@ class TestCallOpenAI:
         alerts_text = "  (none)"
         config = _make_config()
 
-        with caplog.at_level(logging.WARNING):
-            with patch("httpx2.post") as mock_post:
-                mock_post.return_value = _make_mock_response({"choices": [{"message": {"content": "ok"}}]})
-                OpenAIProvider(config).call(build_prompt(fields, alerts_text))
+        with caplog.at_level(logging.WARNING), patch("httpx2.post") as mock_post:
+            mock_post.return_value = _make_mock_response({"choices": [{"message": {"content": "ok"}}]})
+            OpenAIProvider(config).call(build_prompt(fields, alerts_text))
 
         assert "api_url does not appear to match" not in caplog.text
 
@@ -207,10 +204,9 @@ class TestCallAnthropic:
             api_url="https://api.openai.com/v1/chat/completions",
         )
 
-        with caplog.at_level(logging.WARNING):
-            with patch("httpx2.post") as mock_post:
-                mock_post.return_value = _make_mock_response({"content": [{"type": "text", "text": "ok"}]})
-                AnthropicProvider(config).call(build_prompt(fields, alerts_text))
+        with caplog.at_level(logging.WARNING), patch("httpx2.post") as mock_post:
+            mock_post.return_value = _make_mock_response({"content": [{"type": "text", "text": "ok"}]})
+            AnthropicProvider(config).call(build_prompt(fields, alerts_text))
 
         assert "api_url does not appear to match" in caplog.text
 
@@ -222,10 +218,9 @@ class TestCallAnthropic:
             api_url="https://my-proxy.example.com/v1/chat/completions",
         )
 
-        with caplog.at_level(logging.WARNING):
-            with patch("httpx2.post") as mock_post:
-                mock_post.return_value = _make_mock_response({"content": [{"type": "text", "text": "ok"}]})
-                AnthropicProvider(config).call(build_prompt(fields, alerts_text))
+        with caplog.at_level(logging.WARNING), patch("httpx2.post") as mock_post:
+            mock_post.return_value = _make_mock_response({"content": [{"type": "text", "text": "ok"}]})
+            AnthropicProvider(config).call(build_prompt(fields, alerts_text))
 
         assert "api_url does not appear to match" in caplog.text
 
@@ -237,10 +232,9 @@ class TestCallAnthropic:
             api_url="https://api.anthropic.com/v1/messages",
         )
 
-        with caplog.at_level(logging.WARNING):
-            with patch("httpx2.post") as mock_post:
-                mock_post.return_value = _make_mock_response({"content": [{"type": "text", "text": "ok"}]})
-                AnthropicProvider(config).call(build_prompt(fields, alerts_text))
+        with caplog.at_level(logging.WARNING), patch("httpx2.post") as mock_post:
+            mock_post.return_value = _make_mock_response({"content": [{"type": "text", "text": "ok"}]})
+            AnthropicProvider(config).call(build_prompt(fields, alerts_text))
 
         assert "api_url does not appear to match" not in caplog.text
 

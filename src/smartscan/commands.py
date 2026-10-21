@@ -8,7 +8,7 @@ import sqlite3
 import sys
 import time
 from argparse import Namespace
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from .database import init_db, open_db, parse_date, query_smart_info, save_to_db
@@ -274,7 +274,7 @@ def do_query(args: Namespace) -> None:
         last_days = args.query_config.last_days
 
     if last_days:
-        since_str = (datetime.now(timezone.utc) - timedelta(days=last_days)).strftime("%Y-%m-%d")
+        since_str = (datetime.now(UTC) - timedelta(days=last_days)).strftime("%Y-%m-%d")
     else:
         since_str = args.since or args.query_config.since
 

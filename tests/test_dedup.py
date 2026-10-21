@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import sqlite3
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from conftest import make_fields
 
@@ -209,7 +209,7 @@ class TestFindRedundantIds:
     def test_two_identical_records_within_window(self) -> None:
         conn = init_db(":memory:")
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         ts1 = now.strftime("%Y-%m-%dT%H:%M:%SZ")
         ts2 = (now + timedelta(minutes=10)).strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -234,7 +234,7 @@ class TestFindRedundantIds:
     def test_significant_change_keeps_both(self) -> None:
         conn = init_db(":memory:")
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         ts1 = now.strftime("%Y-%m-%dT%H:%M:%SZ")
         ts2 = (now + timedelta(minutes=10)).strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -266,7 +266,7 @@ class TestFindRedundantIds:
     def test_pattern_filter_applies(self) -> None:
         conn = init_db(":memory:")
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         ts1 = now.strftime("%Y-%m-%dT%H:%M:%SZ")
         ts2 = (now + timedelta(minutes=10)).strftime("%Y-%m-%dT%H:%M:%SZ")
 

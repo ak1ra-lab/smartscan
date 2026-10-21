@@ -6,7 +6,7 @@ import json
 import logging
 import re
 import sqlite3
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -87,7 +87,7 @@ def parse_date(date_str: str) -> datetime:
         InvalidDateError: If the string does not match the expected format.
     """
     try:
-        return datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+        return datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=UTC)
     except ValueError as exc:
         raise InvalidDateError(f"Invalid date format: {date_str} (expected YYYY-MM-DD)") from exc
 
@@ -142,7 +142,7 @@ def save_to_db(
     llm_analysis: str | None = None,
 ) -> None:
     """Persist a single SMART data record into the database."""
-    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    timestamp = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
     placeholders = ", ".join("?" * len(_COLUMNS_INSERT))
     columns = ", ".join(_COLUMNS_INSERT)
     conn.execute(

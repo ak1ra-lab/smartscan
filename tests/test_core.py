@@ -465,17 +465,17 @@ class TestBuildDeviceTree:
             def name(self) -> str:
                 return self._name
 
-            def resolve(self) -> "FakePath":
+            def resolve(self) -> FakePath:
                 return FakePath(self._target)
 
-            def __lt__(self, other: "FakeEntry") -> bool:
+            def __lt__(self, other: FakeEntry) -> bool:
                 return self._name < other._name
 
         class FakePath:
             def __init__(self, p: str) -> None:
                 self._p = p
 
-            def __truediv__(self, other: str) -> "FakePath":
+            def __truediv__(self, other: str) -> FakePath:
                 return FakePath(f"{self._p}/{other}")
 
             def is_dir(self) -> bool:
@@ -535,17 +535,17 @@ class TestBuildDeviceTree:
             def name(self) -> str:
                 return self._name
 
-            def resolve(self) -> "FakePath":
+            def resolve(self) -> FakePath:
                 return FakePath(self._target)
 
-            def __lt__(self, other: "FakeEntry") -> bool:
+            def __lt__(self, other: FakeEntry) -> bool:
                 return self._name < other._name
 
         class FakePath:
             def __init__(self, p: str) -> None:
                 self._p = p
 
-            def __truediv__(self, other: str) -> "FakePath":
+            def __truediv__(self, other: str) -> FakePath:
                 return FakePath(f"{self._p}/{other}")
 
             def is_dir(self) -> bool:
