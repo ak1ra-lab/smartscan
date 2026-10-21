@@ -5,11 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.5.0] - 2026-10-21
 
 ### Changed
 
 - Invalid or unreadable config files now abort with an error instead of silently falling back to defaults
+- `lsblk.source` values are validated against `by-id`, `by-path`, and `by-diskseq`
 - Replace Zensical with MkDocs Material for the documentation site
 
 ### Fixed
@@ -18,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Self-test statuses containing a failure (e.g. `Completed: read failure`) are no longer treated as healthy
 - `lang = "zh"` now works as documented, in addition to `zh-CN` and `zh-TW`
 - Log-file creation errors are written to stderr instead of corrupting JSON output on stdout
+- `query` now reports a missing database file instead of exiting silently
 
 ## [0.4.0] - 2026-06-26
 
