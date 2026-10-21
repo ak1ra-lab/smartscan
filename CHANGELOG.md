@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- Default `collect` and `query` tables now omit fields the drive does not report instead of printing `N/A`; `--verbose` still shows every field, including unavailable values
+- Extended fields that trigger a threshold alert are promoted into the default table so warnings are never hidden
+- LLM prompts now include every extracted field and, for per-disk and batch analysis, the complete raw `smartctl` JSON; trend analysis includes the latest complete field set
+- Raise the default `llm.max_tokens` from 4096 to 8192 so batch summaries and reasoning outputs have more room; it remains an output cap and does not affect input/context size
+
+### Fixed
+
+- Alert highlighting now looks up fields by their underlying key instead of their display label
+- Unknown rotation rates are no longer reported as `SSD (no rotation)`
+
 ## [0.6.0] - 2026-10-21
 
 ### Added
