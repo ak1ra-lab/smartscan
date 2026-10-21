@@ -139,8 +139,10 @@ api_key = ""
 # Model name as recognised by the API
 model = "gpt-4o-mini"
 
-# Maximum tokens in the model response (output limit, not input)
-max_tokens = 4096
+# Maximum tokens in the model response (output limit, not input/context).
+# 8192 is a safe default for current models. Raise it for large --llm summary
+# runs with many disks; lower it if your model has a smaller output limit.
+max_tokens = 8192
 
 # HTTP request timeout in seconds
 timeout = 120

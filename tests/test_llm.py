@@ -24,7 +24,7 @@ def _make_config(**overrides: str | int | float | bool) -> LLMConfig:
         "api_url": "https://api.openai.com/v1/chat/completions",
         "api_key": "sk-test-key",
         "model": "gpt-4o-mini",
-        "max_tokens": 4096,
+        "max_tokens": 8192,
         "timeout": 120,
         "temperature": 0.3,
         "delay": 0.0,
@@ -57,7 +57,7 @@ class TestCallOpenAI:
 
         body = call_kwargs["json"]
         assert body["model"] == "gpt-4o-mini"
-        assert body["max_tokens"] == 4096
+        assert body["max_tokens"] == 8192
         assert body["temperature"] == 0.3
         assert body["messages"][0]["role"] == "system"
         assert body["messages"][1]["role"] == "user"
@@ -162,7 +162,7 @@ class TestCallAnthropic:
 
         body = call_kwargs["json"]
         assert body["model"] == "claude-sonnet-4-20250514"
-        assert body["max_tokens"] == 4096
+        assert body["max_tokens"] == 8192
         assert body["temperature"] == 0.3
         assert body["system"] is not None
         assert body["messages"][0]["role"] == "user"

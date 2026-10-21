@@ -56,3 +56,4 @@ def test_no_config_uses_defaults(tmp_path, monkeypatch) -> None:
     config = load_config()
 
     assert config.format == "table"
+    assert config.llm.max_tokens == 8192

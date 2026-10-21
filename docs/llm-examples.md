@@ -38,7 +38,7 @@ provider = "openai"
 api_url = "https://api.openai.com/v1/chat/completions"
 api_key = "sk-your-openai-key"
 model = "deepseek-v4-flash"
-max_tokens = 4096
+max_tokens = 8192
 timeout = 60
 ```
 
@@ -51,7 +51,7 @@ provider = "anthropic"
 api_url = "https://api.anthropic.com/v1/messages"
 api_key = "sk-ant-..."
 model = "claude-sonnet-4-20250514"
-max_tokens = 4096
+max_tokens = 8192
 timeout = 60
 ```
 
@@ -66,7 +66,7 @@ provider = "openai"
 api_url = "https://api.deepseek.com/chat/completions"
 api_key = "sk-your-deepseek-key"
 model = "deepseek-v4-flash"
-max_tokens = 4096
+max_tokens = 8192
 timeout = 60
 lang = "zh"
 ```
@@ -80,7 +80,7 @@ provider = "anthropic"
 api_url = "https://api.deepseek.com/anthropic/messages"
 api_key = "sk-your-deepseek-key"
 model = "deepseek-v4-pro"
-max_tokens = 4096
+max_tokens = 8192
 timeout = 60
 ```
 

@@ -90,7 +90,7 @@ class LLMConfig(BaseModel):
     api_url: str = "https://api.openai.com/v1/chat/completions"
     api_key: str = ""
     model: str = "gpt-4o-mini"
-    max_tokens: int = 4096
+    max_tokens: int = 8192
     timeout: int = 120
     temperature: float = 0.3
     delay: float = 0.0
