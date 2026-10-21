@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import sys
 from pathlib import Path
 
 
@@ -18,6 +19,7 @@ def setup_logging(log_file: str | None = None, log_level: str = "WARNING") -> No
     root = logging.getLogger()
     for handler in list(root.handlers):
         root.removeHandler(handler)
+        handler.close()
 
     root.setLevel(logging.DEBUG)
 
@@ -32,7 +34,7 @@ def _add_file_handler(root: logging.Logger, log_file: str, log_level: str) -> No
     try:
         log_path = Path(log_file).expanduser()
         log_path.parent.mkdir(parents=True, exist_ok=True)
-        fh = logging.FileHandler(str(log_path))
+        fh = logging.FileHandler(str(log_path), encoding="utf-8")
         fh.setLevel(level)
         fh.setFormatter(
             logging.Formatter(
@@ -41,6 +43,6 @@ def _add_file_handler(root: logging.Logger, log_file: str, log_level: str) -> No
             )
         )
         root.addHandler(fh)
-    except OSError as exc:
-        print(f"Cannot create log file {log_file}: {exc}", flush=True)
+    except (OSError, ValueError) as exc:
+        print(f"Cannot create log file {log_file}: {exc}", file=sys.stderr, flush=True)
         root.addHandler(logging.NullHandler())

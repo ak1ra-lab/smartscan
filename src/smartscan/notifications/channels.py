@@ -97,7 +97,6 @@ class FeishuNotifier(BaseNotifier):
         string_to_sign = f"{timestamp}\n{self._config.secret}"
         sig = hmac.new(
             string_to_sign.encode("utf-8"),
-            self._config.secret.encode("utf-8"),
-            hashlib.sha256,
+            digestmod=hashlib.sha256,
         ).digest()
         return timestamp, base64.b64encode(sig).decode("utf-8")

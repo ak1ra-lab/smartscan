@@ -12,6 +12,7 @@ import httpx2
 from ..models import LLMConfig
 
 _LANG_INSTRUCTIONS: dict[str, str] = {
+    "zh": "Please respond in Simplified Chinese (简体中文).",
     "zh-CN": "Please respond in Simplified Chinese (简体中文).",
     "zh-TW": "Please respond in Traditional Chinese (繁體中文).",
 }
@@ -90,8 +91,7 @@ class BaseLLMProvider(abc.ABC):
 
         if suspicious:
             logging.warning(
-                "LLM provider is '%s' but api_url does not appear to match (%s) "
-                "— ensure this is intentional",
+                "LLM provider is '%s' but api_url does not appear to match (%s) — ensure this is intentional",
                 self.provider_name,
                 url,
             )

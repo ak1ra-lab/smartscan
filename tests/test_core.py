@@ -113,9 +113,7 @@ class TestExtractFields:
             "smart_status": {"passed": True},
             "temperature": {"current": 35},
             "ata_smart_error_log": {"summary": {"count": 0}},
-            "ata_smart_data": {
-                "self_test": {"status": {"string": "Completed without error"}}
-            },
+            "ata_smart_data": {"self_test": {"status": {"string": "Completed without error"}}},
         }
         fields = extract_fields(data)
         assert fields["model_family"] == "Seagate BarraCuda"
@@ -177,9 +175,7 @@ class TestExtractFields:
                 ]
             },
             "ata_smart_error_log": {"summary": {"count": 3}},
-            "ata_smart_data": {
-                "self_test": {"status": {"string": "Self-test routine in progress"}}
-            },
+            "ata_smart_data": {"self_test": {"status": {"string": "Self-test routine in progress"}}},
         }
         fields = extract_fields(data)
         assert fields["reallocated_sector_ct"] == "5"
@@ -210,9 +206,7 @@ class TestExtractFields:
                 ]
             },
             "ata_smart_error_log": {"summary": {"count": 0}},
-            "ata_smart_data": {
-                "self_test": {"status": {"string": "Completed without error"}}
-            },
+            "ata_smart_data": {"self_test": {"status": {"string": "Completed without error"}}},
         }
         fields = extract_fields(data)
         assert fields["current_pending_sector"] == "0"
@@ -279,9 +273,7 @@ class TestThresholds:
         fields = make_fields(reallocated_sector_ct="5")
         rules = ThresholdRules()
         alerts = check_thresholds(fields, rules)
-        assert any(
-            a.field == "reallocated_sector_ct" and a.level == "warning" for a in alerts
-        )
+        assert any(a.field == "reallocated_sector_ct" and a.level == "warning" for a in alerts)
 
     def test_reallocated_sector_critical_above_10(self) -> None:
         fields = make_fields(reallocated_sector_ct="21")
@@ -295,32 +287,37 @@ class TestThresholds:
         fields = make_fields(current_pending_sector="3")
         rules = ThresholdRules()
         alerts = check_thresholds(fields, rules)
-        assert any(
-            a.field == "current_pending_sector" and a.level == "critical"
-            for a in alerts
-        )
+        assert any(a.field == "current_pending_sector" and a.level == "critical" for a in alerts)
 
     def test_offline_uncorrectable_critical(self) -> None:
         fields = make_fields(offline_uncorrectable="1")
         rules = ThresholdRules()
         alerts = check_thresholds(fields, rules)
-        assert any(
-            a.field == "offline_uncorrectable" and a.level == "critical" for a in alerts
-        )
+        assert any(a.field == "offline_uncorrectable" and a.level == "critical" for a in alerts)
 
     def test_self_test_failure_warning(self) -> None:
         fields = make_fields(self_test_status="Failed in segment 3")
         rules = ThresholdRules()
         alerts = check_thresholds(fields, rules)
-        assert any(
-            a.field == "self_test_status" and a.level == "warning" for a in alerts
-        )
+        assert any(a.field == "self_test_status" and a.level == "warning" for a in alerts)
 
     def test_self_test_healthy(self) -> None:
         fields = make_fields(self_test_status="Completed without error")
         rules = ThresholdRules()
         alerts = check_thresholds(fields, rules)
         assert not any(a.field == "self_test_status" for a in alerts)
+
+    def test_self_test_completed_with_failure_is_warning(self) -> None:
+        fields = make_fields(self_test_status="Completed: read failure")
+        rules = ThresholdRules()
+        alerts = check_thresholds(fields, rules)
+        assert any(a.field == "self_test_status" and a.level == "warning" for a in alerts)
+
+    def test_self_test_aborted_is_warning(self) -> None:
+        fields = make_fields(self_test_status="Aborted by host")
+        rules = ThresholdRules()
+        alerts = check_thresholds(fields, rules)
+        assert any(a.field == "self_test_status" and a.level == "warning" for a in alerts)
 
     def test_multiple_alerts(self) -> None:
         fields = make_fields(
@@ -380,9 +377,7 @@ class TestParseDate:
 class TestDatabase:
     def test_init_db_creates_tables(self) -> None:
         conn = init_db(":memory:")
-        tables = conn.execute(
-            "SELECT name FROM sqlite_master WHERE type='table'"
-        ).fetchall()
+        tables = conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
         names = [row["name"] for row in tables]
         assert "smart_info" in names
         conn.close()
@@ -436,10 +431,7 @@ class TestDatabase:
             llm_analysis="Drive has 21 reallocated sectors — replace soon.",
         )
         rows = query_smart_info(conn, None, None, None)
-        assert (
-            rows[0]["llm_analysis"]
-            == "Drive has 21 reallocated sectors — replace soon."
-        )
+        assert rows[0]["llm_analysis"] == "Drive has 21 reallocated sectors — replace soon."
         conn.close()
 
     def test_query_with_pattern(self) -> None:

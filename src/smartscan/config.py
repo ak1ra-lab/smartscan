@@ -8,6 +8,7 @@ from pathlib import Path
 
 from pydantic import ValidationError
 
+from .exceptions import ConfigError
 from .models import SmartScanConfig
 from .utils import expand_env_vars
 
@@ -21,19 +22,15 @@ def load_config(config_path: str | None = None) -> SmartScanConfig:
     """
     from .constants import CONFIG_SEARCH_PATHS
 
-    candidates: list[Path]
     if config_path is not None:
         candidates = [Path(config_path).expanduser()]
     else:
         candidates = [Path(p).expanduser() for p in CONFIG_SEARCH_PATHS]
 
-    expanded = None
-    for candidate in candidates:
-        if candidate.is_file():
-            expanded = candidate
-            break
-
+    expanded = next((c for c in candidates if c.is_file()), None)
     if expanded is None:
+        if config_path is not None:
+            raise ConfigError(f"Config file not found: {config_path}")
         logging.debug("No config file found, using defaults")
         return SmartScanConfig()
 
@@ -41,18 +38,10 @@ def load_config(config_path: str | None = None) -> SmartScanConfig:
 
     try:
         raw = tomllib.loads(expanded.read_text(encoding="utf-8"))
-    except tomllib.TOMLDecodeError as exc:
-        logging.warning("Failed to parse config file %s: %s", expanded, exc)
-        return SmartScanConfig()
-
-    if not isinstance(raw, dict):
-        logging.warning("Invalid config file format; expected a TOML table.")
-        return SmartScanConfig()
-
-    raw = expand_env_vars(raw)
+    except (OSError, tomllib.TOMLDecodeError) as exc:
+        raise ConfigError(f"Failed to read config file {expanded}: {exc}") from exc
 
     try:
-        return SmartScanConfig.model_validate(raw)
+        return SmartScanConfig.model_validate(expand_env_vars(raw))
     except ValidationError as exc:
-        logging.warning("Invalid config values: %s", exc)
-        return SmartScanConfig()
+        raise ConfigError(f"Invalid config values in {expanded}: {exc}") from exc

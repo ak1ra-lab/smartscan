@@ -26,6 +26,10 @@ def _self_test_healthy(status: str) -> bool:
     if status in ("N/A", ""):
         return True
     lowered = status.lower()
+    if "without error" in lowered:
+        return True
+    if any(word in lowered for word in ("fail", "error", "abort", "interrupt")):
+        return False
     return "pass" in lowered or "completed" in lowered
 
 
@@ -91,11 +95,7 @@ def check_thresholds(fields: SmartInfo, rules: ThresholdRules) -> list[Alert]:
     for field_name, threshold in thresholds.items():
         value = field_values.get(field_name)
         if value is not None and value > threshold:
-            level = (
-                "critical"
-                if field_name in ("current_pending_sector", "offline_uncorrectable")
-                else "warning"
-            )
+            level = "critical" if field_name in ("current_pending_sector", "offline_uncorrectable") else "warning"
             alerts.append(_build_alert(field_name, level, str(value), threshold))
 
     realloc_val = field_values.get("reallocated_sector_ct")
@@ -104,8 +104,7 @@ def check_thresholds(fields: SmartInfo, rules: ThresholdRules) -> list[Alert]:
             if a.field == "reallocated_sector_ct":
                 a.level = "critical"
                 a.message = (
-                    f"reallocated_sector_ct: {realloc_val} "
-                    f"(threshold: {rules.reallocated_sector_ct}, >10=critical)"
+                    f"reallocated_sector_ct: {realloc_val} (threshold: {rules.reallocated_sector_ct}, >10=critical)"
                 )
 
     logging.debug("Threshold check: %d alert(s) triggered", len(alerts))

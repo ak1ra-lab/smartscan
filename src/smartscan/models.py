@@ -87,7 +87,7 @@ class PruneConfig(BaseModel):
 
 
 class LsblkConfig(BaseModel):
-    source: list[str] = Field(default_factory=list)
+    source: list[Literal["by-id", "by-path", "by-diskseq"]] = Field(default_factory=list)
 
 
 class TelegramConfig(BaseModel):

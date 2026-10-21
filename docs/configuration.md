@@ -6,7 +6,10 @@ the command line, the first file found among the following is used:
 1. `~/.config/smartscan/smartscan.toml` (XDG user config)
 2. `/etc/smartscan/smartscan.toml` (system-wide config)
 
-Pass `--config <path>` to use a specific file.
+Pass `--config <path>` to use a specific file. If that file does not exist, or if
+the config file cannot be parsed or validated, smartscan exits with an error
+instead of silently using defaults. When no config file is found automatically,
+built-in defaults are used.
 
 All keys shown below with their default values:
 

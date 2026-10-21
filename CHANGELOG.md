@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- Invalid or unreadable config files now abort with an error instead of silently falling back to defaults
+
+### Fixed
+
+- Feishu webhook signatures now follow the documented `timestamp\nsecret` HMAC-SHA256 algorithm
+- Self-test statuses containing a failure (e.g. `Completed: read failure`) are no longer treated as healthy
+- `lang = "zh"` now works as documented, in addition to `zh-CN` and `zh-TW`
+- Log-file creation errors are written to stderr instead of corrupting JSON output on stdout
+
 ## [0.4.0] - 2026-06-26
 
 ### Added
