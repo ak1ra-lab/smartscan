@@ -28,19 +28,14 @@ exclude = [
     "venv",
 ]
 
-# Same as Black.
-line-length = 88
+line-length = 120
 indent-width = 4
 
 # Assume Python 3.11
 target-version = "py311"
 
 [lint]
-# Enable Pyflakes (`F`) and a subset of the pycodestyle (`E`)  codes by default.
-# Unlike Flake8, Ruff doesn't enable pycodestyle warnings (`W`) or
-# McCabe complexity (`C901`) by default.
-# Enable isort (I) linter, in addition to the defaults.
-select = ["E4", "E7", "E9", "F", "I"]
+# select = [...]  # See the Default Rules page for the full listing.
 ignore = []
 
 # Allow fix for all enabled rules (when `--fix`) is provided.
@@ -48,7 +43,7 @@ fixable = ["ALL"]
 unfixable = []
 
 # Allow unused variables when underscore-prefixed.
-dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+dummy-variable-rgx = "^(_+|(_+[\\p{XID_Continue}]*[\\p{XID_Continue}--_]+?))$"
 
 [format]
 # Like Black, use double quotes for strings.

@@ -89,9 +89,7 @@ def parse_date(date_str: str) -> datetime:
     try:
         return datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=timezone.utc)
     except ValueError as exc:
-        raise InvalidDateError(
-            f"Invalid date format: {date_str} (expected YYYY-MM-DD)"
-        ) from exc
+        raise InvalidDateError(f"Invalid date format: {date_str} (expected YYYY-MM-DD)") from exc
 
 
 def query_smart_info(

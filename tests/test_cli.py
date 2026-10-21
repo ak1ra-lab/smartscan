@@ -30,9 +30,7 @@ def test_collect_with_pattern() -> None:
 
 def test_collect_with_flags() -> None:
     parser = create_parser()
-    args = parser.parse_args(
-        ["--json", "collect", "--no-save", "--llm", "all", "Samsung"]
-    )
+    args = parser.parse_args(["--json", "collect", "--no-save", "--llm", "all", "Samsung"])
     assert args.command == "collect"
     assert args.json is True
     assert args.no_save is True
@@ -81,9 +79,7 @@ def test_global_json_flag() -> None:
 
 def test_query_with_dates() -> None:
     parser = create_parser()
-    args = parser.parse_args(
-        ["query", "--since", "2024-01-01", "--until", "2024-12-31"]
-    )
+    args = parser.parse_args(["query", "--since", "2024-01-01", "--until", "2024-12-31"])
     assert args.command == "query"
     assert args.since == "2024-01-01"
     assert args.until == "2024-12-31"
@@ -157,17 +153,13 @@ def test_lsblk_with_exclude() -> None:
 
 def test_lsblk_with_multiple_excludes() -> None:
     parser = create_parser()
-    args = parser.parse_args(
-        ["--exclude", "^/dev/loop", "--exclude", "^/dev/zd", "lsblk"]
-    )
+    args = parser.parse_args(["--exclude", "^/dev/loop", "--exclude", "^/dev/zd", "lsblk"])
     assert args.exclude_patterns == ["^/dev/loop", "^/dev/zd"]
 
 
 def test_lsblk_with_exclude_and_source() -> None:
     parser = create_parser()
-    args = parser.parse_args(
-        ["--exclude", "^/dev/loop", "lsblk", "--source", "by-id", "nvme"]
-    )
+    args = parser.parse_args(["--exclude", "^/dev/loop", "lsblk", "--source", "by-id", "nvme"])
     assert args.command == "lsblk"
     assert args.pattern == "nvme"
     assert args.lsblk_source == ["by-id"]
@@ -183,9 +175,7 @@ def test_collect_with_exclude() -> None:
 
 def test_collect_with_multiple_excludes() -> None:
     parser = create_parser()
-    args = parser.parse_args(
-        ["--exclude", "BD-RE", "--exclude", "^/dev/loop", "collect"]
-    )
+    args = parser.parse_args(["--exclude", "BD-RE", "--exclude", "^/dev/loop", "collect"])
     assert args.exclude_patterns == ["BD-RE", "^/dev/loop"]
 
 
